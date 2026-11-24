@@ -8,11 +8,17 @@ namespace Jabasoft.Brug.App.Paginas.Broker;
 /// Broker &gt; Nu bezig: wat de broker op dit moment doet, elke seconde
 /// bijgewerkt uit de wachtrij (GET /api/queue). Links wat loopt en wat
 /// wacht, met het verloop van elke vraag en een knop om te annuleren;
-/// rechts de videokaart en wat net klaar is (de broker toont afgeronde
-/// vragen nog 30 seconden).
+/// rechts de videokaart en wat net klaar is. De broker houdt afgeronde
+/// vragen maar 30 seconden vast; de Brug onthoudt ze zelf 5 minuten.
 /// </summary>
 public sealed class NuBezig : BrokerPagina
 {
+    /// <summary>Hoe lang een afgeronde vraag onder Net klaar blijft staan.</summary>
+    private static readonly TimeSpan KlaarBewaren = TimeSpan.FromMinutes(5);
+
+    /// <summary>Afgeronde vragen die de Brug gezien heeft, op volgnummer.</summary>
+    private readonly Dictionary<long, WachtrijItem> _klaar = [];
+
     public NuBezig() : base(TimeSpan.FromSeconds(1))
     {
     }
@@ -32,7 +38,19 @@ public sealed class NuBezig : BrokerPagina
 
         var lopend = items.Where(i => i.Status == "Bezig").ToList();
         var wachtend = items.Where(i => i.Status == "Wachtend").OrderBy(i => i.Plek).ToList();
-        var klaar = items.Where(i => i.Status is "Klaar" or "Mislukt" or "Geannuleerd").ToList();
+        // Afgeronde vragen bijhouden: nieuwe erbij, ouder dan 5 minuten eruit.
+        foreach (var item in items.Where(i => i.Status is "Klaar" or "Mislukt" or "Geannuleerd"))
+        {
+            _klaar[item.Id] = item;
+        }
+
+        var grens = DateTimeOffset.Now - KlaarBewaren;
+        foreach (var oud in _klaar.Values.Where(i => (i.Afgerond ?? i.Aangemeld) < grens).Select(i => i.Id).ToList())
+        {
+            _klaar.Remove(oud);
+        }
+
+        var klaar = _klaar.Values.OrderByDescending(i => i.Afgerond ?? i.Aangemeld).ToList();
 
         Lijf.Children.Add(Bouw.Band(
             ("Lopend", lopend.Count.ToString(Bouw.Nl)),
@@ -56,8 +74,8 @@ public sealed class NuBezig : BrokerPagina
         var rechts = new StackPanel { Spacing = 24 };
         rechts.Children.Add(GpuPaneel());
         rechts.Children.Add(Bouw.Paneel("Net klaar",
-            Lijst(klaar.Select(KlaarRegel), "Nog niets afgerond in de laatste 30 seconden."),
-            "laatste 30 s"));
+            Lijst(klaar.Select(KlaarRegel), "Nog niets afgerond in de laatste 5 minuten."),
+            "laatste 5 min"));
 
         Grid.SetColumn(rechts, 1);
         raster.Children.Add(links);
