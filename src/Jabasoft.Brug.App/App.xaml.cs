@@ -15,8 +15,8 @@ public partial class App : Application
     /// <summary>Wat de Brug zelf doet (eerste infoblok in de header).</summary>
     public static Activiteitenlog AppLog { get; } = new();
 
-    /// <summary>Wat de broker doet, opgehaald via /logs (laatste infoblok in de header).</summary>
-    public static Activiteitenlog BrokerLog { get; } = new();
+    /// <summary>Wat de broker doet, opgehaald via /logs (laatste infoblok in de header en Broker &gt; Logs).</summary>
+    public static Activiteitenlog BrokerLog { get; } = new(5000);
 
     /// <summary>Of de broker bereikbaar is, en hem starten. De Brug stopt hem nooit.</summary>
     public static Brokerbewaking Broker { get; } = new(AppLog);
@@ -47,6 +47,10 @@ public partial class App : Application
         _brokerLezer.Start();
 
         Meter.Start();
+
+        // Eigen database (JabasoftBrug) op de achtergrond klaarzetten; de
+        // schermen werken ook zonder, met de ingebouwde modelbeschrijvingen.
+        _ = Data.BrugDatabase.VoorbereidenAsync();
 
         _venster = new MainWindow();
         _venster.Closed += (_, _) =>

@@ -59,6 +59,10 @@ public sealed partial class MainWindow : Window
         "hoofdscherm" => new Hoofdscherm(),
         "broker.nubezig" => new Paginas.Broker.NuBezig(),
         "broker.health" => new Paginas.Broker.Health(),
+        "broker.tokens" => new Paginas.Broker.Tokens(),
+        "broker.modellen" => new Paginas.Broker.Modellen(),
+        "broker.logs" => new Paginas.Broker.Logs(),
+        "broker.instellingen" => new Paginas.Broker.Instellingen(),
         _ => new LegePagina(onderdeel),
     };
 

@@ -22,7 +22,7 @@ public static class Menukaart
             new("broker.tokens", "Tokens", "",
                 "Tokenverbruik: totaal, grafiek, per onderdeel en per week.", Fase: 3),
             new("broker.modellen", "Modellen", "",
-                "Wat er geladen is, VRAM en RAM, contextgrootte, en wie de GPU nu heeft.", Fase: 3),
+                "Elk model op de AI-server: waarvoor het is, waar het goed en minder goed in is, en voor welke taak het ingesteld staat.", Fase: 3),
             new("broker.logs", "Logs", "",
                 "Geschiedenis van alle verzoeken, met filters op client, model, fouten en duur.", Fase: 3),
             new("broker.instellingen", "Instellingen", "",
