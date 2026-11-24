@@ -5,62 +5,78 @@
     xmlns:controls="using:Jabasoft.Brug.App.Controls">
 
     <!--
-        De header (210 hoog), opgebouwd zoals in Jabasoft.App: bovenin de
-        gekleurde titelstrook, daaronder een rij blokken tussen twee lila
-        ellebogen. In fase 1 zijn de blokken nog leeg; in fase 2 komen er
-        echte gegevens in (info, systeem, tokens, activiteit).
-
-        De titelstrook is ook het stuk waarmee je het venster versleept (zie
-        MainWindow: SetTitleBar). Rechts blijft ruimte vrij voor de
-        vensterknoppen van Windows.
+        De header (210 hoog), zoals in Jabasoft.App:
+        - Bovenrij (36): de kleurbalk, linksboven rond, met daaroverheen het
+          JabaSoft-beeldmerk; rechts de eigen vensterknoppen. De balk is ook
+          het stuk waarmee je het venster versleept (MainWindow: SetTitleBar).
+        - Onderrij: links en rechts een paarse elleboog, daartussen vier
+          infoblokken. Tussen de blokken liggen schuifgrepen: slepen maakt een
+          blok breder of smaller, dubbelklikken zet ze weer gelijk. De
+          breedtes worden onthouden (Layout/Indeling).
     -->
     <Grid RowSpacing="6">
         <Grid.RowDefinitions>
-            <RowDefinition Height="40" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Grid x:Name="Titelstrook" Grid.Row="0" Background="Transparent">
-            <Border Margin="0,0,150,0"
-                    Background="{ThemeResource HeaderGradientBrush}"
-                    CornerRadius="20,20,20,20">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,24,0" Spacing="16">
-                    <TextBlock Text="JABASOFT"
-                               FontSize="20"
-                               FontWeight="Bold"
-                               CharacterSpacing="250"
-                               Foreground="{ThemeResource AccentForegroundBrush}" />
-                    <TextBlock Text="BRUG"
-                               FontSize="20"
-                               FontWeight="Light"
-                               CharacterSpacing="250"
-                               Foreground="{ThemeResource AccentForegroundBrush}" />
-                </StackPanel>
-            </Border>
+        <!-- Bovenrij: balk + vensterknoppen. -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Grid x:Name="Titelstrook" Grid.Column="0" Background="Transparent">
+                <Border Height="36"
+                        Background="{ThemeResource HeaderGradientBrush}"
+                        CornerRadius="36,0,0,0" />
+            </Grid>
+
+            <controls:Vensterknoppen x:Name="Knoppen" Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0" />
         </Grid>
 
-        <Grid Grid.Row="1" ColumnSpacing="6">
+        <!-- Onderrij: elleboog | blok | greep | blok | greep | blok | greep | blok | elleboog. -->
+        <Grid x:Name="Blokrij" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="6" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="6" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="6" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="6" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="6" />
                 <ColumnDefinition Width="48" />
             </Grid.ColumnDefinitions>
 
+            <!-- Ellebogen: alleen de buitenste onderhoek rond, zoals in Jabasoft.App. -->
             <Border Grid.Column="0"
                     Background="{ThemeResource HeaderSideGradientBrush}"
-                    CornerRadius="24,0,0,24" />
+                    CornerRadius="0,0,0,48" />
 
-            <controls:Infoblok Grid.Column="1" Titel="INFO" Tekst="Volgt in fase 2" />
-            <controls:Infoblok Grid.Column="2" Titel="SYSTEEM" Tekst="Volgt in fase 2" />
-            <controls:Infoblok Grid.Column="3" Titel="TOKENS" Tekst="Volgt in fase 2" />
-            <controls:Infoblok Grid.Column="4" Titel="ACTIVITEIT" Tekst="Volgt in fase 2" />
+            <controls:Infoblok Grid.Column="2" Titel="INFO" Tekst="Volgt in fase 2" />
+            <controls:Infoblok Grid.Column="4" Titel="SYSTEEM" Tekst="Volgt in fase 2" />
+            <controls:Infoblok Grid.Column="6" Titel="TOKENS" Tekst="Volgt in fase 2" />
+            <controls:Infoblok Grid.Column="8" Titel="ACTIVITEIT" Tekst="Volgt in fase 2" />
 
-            <Border Grid.Column="5"
+            <Border Grid.Column="10"
                     Background="{ThemeResource HeaderSideGradientBrush}"
-                    CornerRadius="0,24,24,0" />
+                    CornerRadius="0,0,48,0" />
+
+            <controls:Schuifgreep x:Name="Greep1" Grid.Column="3" LinkerKolom="2" RechterKolom="4" />
+            <controls:Schuifgreep x:Name="Greep2" Grid.Column="5" LinkerKolom="4" RechterKolom="6" />
+            <controls:Schuifgreep x:Name="Greep3" Grid.Column="7" LinkerKolom="6" RechterKolom="8" />
         </Grid>
+
+        <!-- Het beeldmerk ligt over de balk heen (zoals in Jabasoft.App op X 82,
+             Y -2), in een eigen laag over beide rijen, zodat het de hoogte van
+             de bovenrij niet oprekt. -->
+        <controls:Beeldmerk Grid.Row="0" Grid.RowSpan="2"
+                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Margin="82,-2,0,0"
+                            IsHitTestVisible="False" />
     </Grid>
 </UserControl>

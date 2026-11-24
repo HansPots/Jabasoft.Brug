@@ -1,0 +1,56 @@
+<UserControl
+    x:Class="Jabasoft.Brug.App.Controls.Beeldmerk"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    FontFamily="Segoe UI">
+
+    <!--
+        Het "JabaSoft the Application"-beeldmerk, overgenomen uit
+        JabaSoftWordmark in Jabasoft.App: "Jaba" groot in oranje, "Soft"
+        iets kleiner in wit, de applicatienaam klein eronder, op een zwarte
+        balk die meegroeit met de letters.
+
+        Het lettertype ligt hier vast (Segoe UI): dit is een beeldmerk, geen
+        interfacetekst. De maten (48/36/12, de 101 bij "Soft" en de negatieve
+        marge die de lege regelruimte boven en onder wegtrekt) zijn op Segoe
+        UI uitgemeten.
+    -->
+    <Border Background="{ThemeResource BackgroundBrush}"
+            Padding="24,0,24,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top">
+        <Grid Margin="0,-16,0,-7">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="3*" />
+                <RowDefinition Height="1*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                       Text="Jaba"
+                       FontWeight="Bold"
+                       FontSize="48"
+                       Foreground="{ThemeResource AccentBrush}"
+                       VerticalAlignment="Bottom" />
+
+            <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.ColumnSpan="2"
+                       Text="Soft"
+                       FontWeight="Bold"
+                       FontSize="36"
+                       Foreground="{ThemeResource Text01Brush}"
+                       VerticalAlignment="Top"
+                       Margin="101,4,1,0" />
+
+            <TextBlock Grid.Row="1" Grid.Column="1"
+                       Text="{x:Bind Applicatienaam, Mode=OneWay}"
+                       FontSize="12"
+                       Foreground="{ThemeResource TextMutedBrush}"
+                       HorizontalAlignment="Right"
+                       VerticalAlignment="Bottom"
+                       Margin="0,0,0,8" />
+        </Grid>
+    </Border>
+</UserControl>

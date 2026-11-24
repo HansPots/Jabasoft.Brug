@@ -24,11 +24,16 @@
                 </Border>
             </Grid>
 
-            <!-- Totaalstand -->
-            <Border Background="{ThemeResource HealthOkBrush}" CornerRadius="22,22,22,0" Height="44">
+            <!-- Totaalstand: in de themakleuren (lila band, zwarte tekst). De
+                 kleur van de stand zit alleen in het bolletje, met een zwarte
+                 rand zodat het groen niet tegen het lila wegvalt. -->
+            <Border Background="{ThemeResource BorderBrush}" CornerRadius="22,22,22,0" Height="44">
                 <Grid Margin="20,0,20,0">
                     <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <Ellipse Width="14" Height="14" Fill="{ThemeResource AccentForegroundBrush}" />
+                        <Ellipse Width="16" Height="16"
+                                 Fill="{ThemeResource HealthOkBrush}"
+                                 Stroke="{ThemeResource AccentForegroundBrush}"
+                                 StrokeThickness="2" />
                         <TextBlock Text="ALLES BEREIKBAAR · 1 ONDERDEEL IN RUST"
                                    FontSize="{StaticResource FontSizeTitle}" FontWeight="Bold" CharacterSpacing="120"
                                    Foreground="{ThemeResource AccentForegroundBrush}" />

@@ -1,9 +1,7 @@
 using Jabasoft.Brug.App.Paginas;
 using Jabasoft.Brug.App.Regios.Menu;
-using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Windows.UI;
 
 namespace Jabasoft.Brug.App;
 
@@ -55,24 +53,16 @@ public sealed partial class MainWindow : Window
 
     /// <summary>
     /// Eigen titelbalk: de inhoud loopt door tot bovenin het venster en de
-    /// titelstrook in de header is het stuk waarmee je sleept. De
-    /// vensterknoppen van Windows blijven, in LCARS-kleuren.
+    /// kleurbalk in de header is het stuk waarmee je sleept. De knoppen van
+    /// Windows worden verborgen (Collapsed); de header heeft eigen
+    /// vensterknoppen, zoals Jabasoft.App.
     /// </summary>
     private void RichtVensterIn()
     {
         ExtendsContentIntoTitleBar = true;
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Collapsed;
         SetTitleBar(Header.Sleepgebied);
-
-        var balk = AppWindow.TitleBar;
-        var oranje = Color.FromArgb(0xFF, 0xFF, 0x99, 0x00);
-        balk.ButtonBackgroundColor = Colors.Transparent;
-        balk.ButtonInactiveBackgroundColor = Colors.Transparent;
-        balk.ButtonForegroundColor = oranje;
-        balk.ButtonInactiveForegroundColor = Color.FromArgb(0xFF, 0xCC, 0x66, 0x66);
-        balk.ButtonHoverBackgroundColor = Color.FromArgb(0xFF, 0x33, 0x22, 0x00);
-        balk.ButtonHoverForegroundColor = oranje;
-        balk.ButtonPressedBackgroundColor = Color.FromArgb(0xFF, 0x55, 0x33, 0x00);
-        balk.ButtonPressedForegroundColor = oranje;
+        Header.KoppelVenster(this);
 
         if (AppWindow.Presenter is OverlappedPresenter venster)
         {

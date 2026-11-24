@@ -1,0 +1,52 @@
+<UserControl
+    x:Class="Jabasoft.Brug.App.Controls.Vensterknoppen"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Eigen vensterknoppen (minimaliseren, maximaliseren/herstellen,
+        sluiten), zoals WindowControlButtons in Jabasoft.App: oranje tekens,
+        bij aanwijzen een lila vlak, bij sluiten een oranje vlak.
+
+        Ze vervangen de knoppen van Windows (MainWindow verbergt die), dus als
+        deze drie het niet doen, is het venster niet meer te sluiten.
+    -->
+    <StackPanel Orientation="Horizontal">
+        <Button x:Name="MinimaliseerKnop"
+                Style="{StaticResource VensterKnopStijl}"
+                ToolTipService.ToolTip="Minimaliseren"
+                Click="Minimaliseer_Click">
+            <TextBlock Text="&#8212;" FontSize="{StaticResource FontSizeTitle}" />
+        </Button>
+
+        <!-- Een kader als het venster gewoon staat, twee kadertjes over
+             elkaar als het gemaximaliseerd is: de knop laat zien wat hij
+             GAAT doen. -->
+        <Button x:Name="HerstelKnop"
+                Style="{StaticResource VensterKnopStijl}"
+                ToolTipService.ToolTip="Maximaliseren"
+                Click="Herstel_Click">
+            <Grid Width="12" Height="12">
+                <Border x:Name="MaximaliseerTeken"
+                        BorderThickness="2,2,2,2"
+                        BorderBrush="{ThemeResource TextPrimaryBrush}" />
+                <Grid x:Name="HerstelTeken" Visibility="Collapsed">
+                    <Border Width="9" Height="9" BorderThickness="2,2,2,2"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            BorderBrush="{ThemeResource TextPrimaryBrush}" />
+                    <Border Width="9" Height="9" BorderThickness="2,2,2,2"
+                            HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                            Background="{ThemeResource BackgroundBrush}"
+                            BorderBrush="{ThemeResource TextPrimaryBrush}" />
+                </Grid>
+            </Grid>
+        </Button>
+
+        <Button x:Name="SluitKnop"
+                Style="{StaticResource VensterSluitKnopStijl}"
+                ToolTipService.ToolTip="Sluiten"
+                Click="Sluit_Click">
+            <TextBlock Text="&#10005;" FontSize="{StaticResource FontSizeTitle}" />
+        </Button>
+    </StackPanel>
+</UserControl>
