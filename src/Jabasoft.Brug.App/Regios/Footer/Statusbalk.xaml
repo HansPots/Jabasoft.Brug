@@ -32,13 +32,13 @@
             </StackPanel>
         </Border>
         <Border Grid.Column="1" Background="{ThemeResource BorderBrush}" CornerRadius="12,12,12,12">
-            <TextBlock Style="{StaticResource PilTekstStijl}" Text="CPU  —" />
+            <TextBlock x:Name="CpuTekst" Style="{StaticResource PilTekstStijl}" Text="CPU  —" />
         </Border>
         <Border Grid.Column="2" Background="{ThemeResource TextMutedBrush}" CornerRadius="12,12,12,12">
-            <TextBlock Style="{StaticResource PilTekstStijl}" Text="RAM  —" />
+            <TextBlock x:Name="RamTekst" Style="{StaticResource PilTekstStijl}" Text="RAM  —" />
         </Border>
         <Border Grid.Column="3" Background="{ThemeResource HeaderGradientMidBrush}" CornerRadius="12,12,12,12">
-            <TextBlock Style="{StaticResource PilTekstStijl}" Text="VRAM  —" />
+            <TextBlock x:Name="VramTekst" Style="{StaticResource PilTekstStijl}" Text="VRAM  —" />
         </Border>
         <Border Grid.Column="4" Background="{ThemeResource AccentBrushDark}" CornerRadius="12,12,12,12">
             <TextBlock x:Name="VersieTekst" Style="{StaticResource PilTekstStijl}" />

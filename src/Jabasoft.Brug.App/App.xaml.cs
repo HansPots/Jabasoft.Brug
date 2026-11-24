@@ -21,6 +21,9 @@ public partial class App : Application
     /// <summary>Of de broker bereikbaar is, en hem starten. De Brug stopt hem nooit.</summary>
     public static Brokerbewaking Broker { get; } = new(AppLog);
 
+    /// <summary>CPU, RAM en videokaarten, elke 2 s (systeemblok en footer).</summary>
+    public static Systeemmeter Meter { get; } = new();
+
     public App()
     {
         InitializeComponent();
@@ -43,8 +46,14 @@ public partial class App : Application
         _brokerLezer = new BrokerLoglezer(BrokerLog, Broker);
         _brokerLezer.Start();
 
+        Meter.Start();
+
         _venster = new MainWindow();
-        _venster.Closed += (_, _) => _brokerLezer?.Dispose();
+        _venster.Closed += (_, _) =>
+        {
+            _brokerLezer?.Dispose();
+            Meter.Dispose();
+        };
         _venster.Activate();
     }
 }

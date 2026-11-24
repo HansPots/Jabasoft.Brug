@@ -15,6 +15,18 @@ public sealed partial class Statusbalk : UserControl
 
         ToonBroker(App.Broker.Toestand);
         App.Broker.Gewijzigd += (_, toestand) => DispatcherQueue.TryEnqueue(() => ToonBroker(toestand));
+
+        App.Meter.Gemeten += (_, meting) => DispatcherQueue.TryEnqueue(() => ToonMeting(meting));
+    }
+
+    /// <summary>CPU, RAM en VRAM, uit dezelfde meter als het systeemblok in de header.</summary>
+    private void ToonMeting(Systeemmeting meting)
+    {
+        CpuTekst.Text = $"CPU  {Weergave.Procent(meting.CpuProcent)}";
+        RamTekst.Text = $"RAM  {Weergave.Gb(meting.RamGebruikt)} / {Weergave.Gb(meting.RamTotaal)} GB";
+        VramTekst.Text = meting.EersteKaart is { } kaart
+            ? $"VRAM  {Weergave.GbUitMiB(kaart.VramGebruiktMiB)} / {Weergave.GbUitMiB(kaart.VramTotaalMiB)} GB"
+            : "VRAM  —";
     }
 
     /// <summary>SYSTEM HEALTH volgt voorlopig alleen de broker; in fase 2 komen database, AI-server en modellen erbij.</summary>

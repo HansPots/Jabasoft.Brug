@@ -59,7 +59,7 @@
 
             <!-- Eerste blok: wat de Brug zelf doet. Laatste blok: wat de broker doet. -->
             <controls:Activiteitenblok x:Name="AppBlok" Grid.Column="2" Titel="ACTIVITEIT · BRUG" />
-            <controls:Infoblok Grid.Column="4" Titel="SYSTEEM" Tekst="Volgt in fase 2" />
+            <controls:Systeemblok Grid.Column="4" />
             <controls:Tokenblok Grid.Column="6" />
             <controls:Activiteitenblok x:Name="BrokerBlok" Grid.Column="8" Titel="ACTIVITEIT · BROKER" />
 
