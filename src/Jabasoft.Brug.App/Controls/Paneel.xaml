@@ -7,7 +7,8 @@
          Rechts in de balk past een korte toevoeging (een aantal, een status).
          Zelfde vorm als Infoblok, maar met eigen inhoud in plaats van een
          regel tekst. -->
-    <Border BorderBrush="{ThemeResource BorderBrush}"
+    <Border Background="{ThemeResource BackgroundBrush}"
+            BorderBrush="{ThemeResource BorderBrush}"
             BorderThickness="{StaticResource RegionBorderThickness}"
             CornerRadius="12,12,12,12">
         <Grid>

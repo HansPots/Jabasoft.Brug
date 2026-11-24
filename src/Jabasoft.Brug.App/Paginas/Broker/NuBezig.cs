@@ -8,49 +8,38 @@ namespace Jabasoft.Brug.App.Paginas.Broker;
 /// Broker &gt; Nu bezig: wat de broker op dit moment doet, elke seconde
 /// bijgewerkt uit de wachtrij (GET /api/queue). Links wat loopt en wat
 /// wacht, met het verloop van elke vraag en een knop om te annuleren;
-/// rechts de videokaart en wat net klaar is. De broker houdt afgeronde
-/// vragen maar 30 seconden vast; de Brug onthoudt ze zelf 5 minuten.
+/// rechts de videokaart en wat net klaar is. De gegevens komen van
+/// App.Wachtrij, die de broker op de achtergrond volgt en afgeronde vragen
+/// 5 minuten onthoudt - ook als dit scherm dicht was.
 /// </summary>
 public sealed class NuBezig : BrokerPagina
 {
-    /// <summary>Hoe lang een afgeronde vraag onder Net klaar blijft staan.</summary>
-    private static readonly TimeSpan KlaarBewaren = TimeSpan.FromMinutes(5);
-
-    /// <summary>Afgeronde vragen die de Brug gezien heeft, op volgnummer.</summary>
-    private readonly Dictionary<long, WachtrijItem> _klaar = [];
-
     public NuBezig() : base(TimeSpan.FromSeconds(1))
     {
     }
 
-    protected override async Task LaadAsync()
+    protected override Task LaadAsync()
     {
-        var wachtrij = await BrokerApi.WachtrijAsync();
+        var volger = App.Wachtrij;
+        var items = volger.Actueel();
+        var klaar = volger.Klaar();
 
         Lijf.Children.Clear();
-        if (wachtrij.Waarde is not { } items)
+        if (volger.Fout is { } fout && items.Count == 0)
         {
             Lijf.Children.Add(Bouw.Band(("Broker", "offline")));
-            Lijf.Children.Add(Bouw.Meldingpaneel("Geen gegevens", $"{wachtrij.Fout}. Start de broker; dit scherm werkt zichzelf bij zodra hij er is."));
+            Lijf.Children.Add(Bouw.Meldingpaneel("Geen gegevens", $"{fout}. Start de broker; dit scherm werkt zichzelf bij zodra hij er is."));
             Lijf.Children.Add(GpuPaneel());
-            return;
+            if (klaar.Count > 0)
+            {
+                Lijf.Children.Add(Bouw.Paneel("Net klaar", Lijst(klaar.Select(KlaarRegel), ""), "laatste 5 min"));
+            }
+
+            return Task.CompletedTask;
         }
 
         var lopend = items.Where(i => i.Status == "Bezig").ToList();
         var wachtend = items.Where(i => i.Status == "Wachtend").OrderBy(i => i.Plek).ToList();
-        // Afgeronde vragen bijhouden: nieuwe erbij, ouder dan 5 minuten eruit.
-        foreach (var item in items.Where(i => i.Status is "Klaar" or "Mislukt" or "Geannuleerd"))
-        {
-            _klaar[item.Id] = item;
-        }
-
-        var grens = DateTimeOffset.Now - KlaarBewaren;
-        foreach (var oud in _klaar.Values.Where(i => (i.Afgerond ?? i.Aangemeld) < grens).Select(i => i.Id).ToList())
-        {
-            _klaar.Remove(oud);
-        }
-
-        var klaar = _klaar.Values.OrderByDescending(i => i.Afgerond ?? i.Aangemeld).ToList();
 
         Lijf.Children.Add(Bouw.Band(
             ("Lopend", lopend.Count.ToString(Bouw.Nl)),
@@ -81,6 +70,7 @@ public sealed class NuBezig : BrokerPagina
         raster.Children.Add(links);
         raster.Children.Add(rechts);
         Lijf.Children.Add(raster);
+        return Task.CompletedTask;
     }
 
     /// <summary>Regels onder elkaar met een dunne lijn ertussen; leeg = de melding.</summary>

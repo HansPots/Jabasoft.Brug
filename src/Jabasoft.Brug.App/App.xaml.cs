@@ -24,6 +24,9 @@ public partial class App : Application
     /// <summary>CPU, RAM en videokaarten, elke 2 s (systeemblok en footer).</summary>
     public static Systeemmeter Meter { get; } = new();
 
+    /// <summary>De wachtrij van de broker, elke seconde, ook als Nu bezig dicht is.</summary>
+    public static Wachtrijvolger Wachtrij { get; } = new();
+
     public App()
     {
         InitializeComponent();
@@ -47,6 +50,7 @@ public partial class App : Application
         _brokerLezer.Start();
 
         Meter.Start();
+        Wachtrij.Start();
 
         // Eigen database (JabasoftBrug) op de achtergrond klaarzetten; de
         // schermen werken ook zonder, met de ingebouwde modelbeschrijvingen.
@@ -61,6 +65,7 @@ public partial class App : Application
         {
             _brokerLezer?.Dispose();
             Meter.Dispose();
+            Wachtrij.Dispose();
         };
         _venster.Activate();
     }

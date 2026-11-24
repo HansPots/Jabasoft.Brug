@@ -89,7 +89,6 @@ public sealed class Modellen : BrokerPagina
                 continue;
             }
 
-            Lijf.Children.Add(Bouw.Band((kop, leden.Count.ToString(Bouw.Nl))));
             var raster = Bouw.Kolommen(2);
             for (var i = 0; i < leden.Count; i++)
             {
@@ -105,7 +104,8 @@ public sealed class Modellen : BrokerPagina
                 Bouw.Zet(raster, kaart, i / 2, i % 2);
             }
 
-            Lijf.Children.Add(raster);
+            // Elke groep in een roze vlak met de gele band erboven, zoals het menu.
+            Lijf.Children.Add(Bouw.Groep(kop, leden.Count.ToString(Bouw.Nl), raster));
         }
     }
 

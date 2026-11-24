@@ -211,6 +211,20 @@ public static class Bouw
         };
     }
 
+    /// <summary>
+    /// Een groep bij elkaar horende panelen, zoals het menu links: een roze
+    /// vlak met vier ronde hoeken, bovenin de gele band met de naam van de
+    /// groep (en een aantal), daaronder de inhoud. De panelen erin hebben een
+    /// zwarte achtergrond, zodat ze los van het roze staan.
+    /// </summary>
+    public static Border Groep(string titel, string waarde, UIElement inhoud) => new()
+    {
+        Background = Kleur("TextMutedBrush"),
+        CornerRadius = new CornerRadius(30, 30, 30, 30),
+        Padding = new Thickness(12),
+        Child = new StackPanel { Spacing = 12, Children = { Band((titel, waarde)), inhoud } },
+    };
+
     /// <summary>Een Paneel met alleen een melding erin, voor "niets te tonen" of een fout bovenaan een scherm.</summary>
     public static Controls.Paneel Meldingpaneel(string titel, string tekst) => Paneel(titel, Melding(tekst));
 
