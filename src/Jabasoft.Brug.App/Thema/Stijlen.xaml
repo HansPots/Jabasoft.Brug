@@ -64,7 +64,7 @@
         <Setter Property="Height" Value="44" />
         <Setter Property="Padding" Value="16,0,14,0" />
         <Setter Property="FontSize" Value="20" />
-        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="CornerRadius" Value="18,18,18,0" />
     </Style>
 
@@ -76,7 +76,7 @@
         <Setter Property="Height" Value="38" />
         <Setter Property="Padding" Value="14,0,12,0" />
         <Setter Property="FontSize" Value="17" />
-        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="CornerRadius" Value="14,14,14,0" />
     </Style>
 

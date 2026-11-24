@@ -24,7 +24,13 @@
     <!-- Buitenstraal (12) min de randdikte (3), voor een balk binnen een kader. -->
     <CornerRadius x:Key="RegionBorderInnerRadius">9,9,0,0</CornerRadius>
 
-    <FontFamily x:Key="AppFontFamily">Segoe UI</FontFamily>
+    <!-- Het lettertype van de hele app: Segoe UI Variable in de Display-stand
+         (gekozen 24-11-2026). Zit in Windows 11. Het beeldmerk houdt zijn
+         eigen Segoe UI; dat is een logo, geen interfacetekst.
+         ContentControlThemeFontFamily is de sleutel die de standaardcontrols
+         van WinUI gebruiken; die zetten we gelijk, zodat alles dezelfde letter heeft. -->
+    <FontFamily x:Key="AppFontFamily">Segoe UI Variable Display</FontFamily>
+    <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI Variable Display</FontFamily>
     <!-- Iconen: het lettertype dat Windows 11 zelf meebrengt. -->
     <FontFamily x:Key="IconFontFamily">Segoe Fluent Icons</FontFamily>
     <x:Double x:Key="FontSizeSmall">12</x:Double>
