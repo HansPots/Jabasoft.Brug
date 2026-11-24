@@ -225,7 +225,7 @@ public static class Bouw
     /// groep links en het aantal rechts in de balk. Zwarte binnenkant, met de
     /// lila panelen erin.
     /// </summary>
-    public static Border Groep(string titel, string waarde, UIElement inhoud)
+    public static Border Groep(string titel, string waarde, UIElement inhoud, string kleur = "TextMutedBrush")
     {
         var balkTekst = new Grid();
         balkTekst.Children.Add(BalkTekst(titel.ToUpper(Nl), HorizontalAlignment.Left));
@@ -233,7 +233,7 @@ public static class Bouw
 
         var balk = new Border
         {
-            Background = Kleur("TextMutedBrush"),
+            Background = Kleur(kleur),
             CornerRadius = new CornerRadius(9, 9, 0, 0),
             Padding = new Thickness(14, 5, 14, 5),
             Child = balkTekst,
@@ -251,7 +251,7 @@ public static class Bouw
         return new Border
         {
             Background = Kleur("BackgroundBrush"),
-            BorderBrush = Kleur("TextMutedBrush"),
+            BorderBrush = Kleur(kleur),
             BorderThickness = new Thickness(3),
             CornerRadius = new CornerRadius(12, 12, 12, 12),
             Child = grid,

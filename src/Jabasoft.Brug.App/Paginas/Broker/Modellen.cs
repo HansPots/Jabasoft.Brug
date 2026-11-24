@@ -142,7 +142,7 @@ public sealed class Modellen : BrokerPagina
                 lijst.Children.Add(knop);
             }
 
-            links.Children.Add(Bouw.Groep(kop, leden.Count.ToString(Bouw.Nl), lijst));
+            links.Children.Add(Bouw.Groep(kop, leden.Count.ToString(Bouw.Nl), lijst, "BorderBrush"));
         }
 
         var raster = new Grid { ColumnSpacing = 24 };
@@ -309,7 +309,7 @@ public sealed class Modellen : BrokerPagina
             }
 
             inhoud.Children.Add(Bouw.Knop(_info is null ? "Beschrijven" : "Bewerken", (_, _) => ToonBewerken(), "BorderBrush"));
-            Content = Bouw.Paneel(_naam, inhoud, _info?.Soort ?? "");
+            Content = Bouw.Groep(_naam, _info?.Soort ?? "", inhoud, "AccentBrushDark");
         }
 
         private void ToonBewerken()
@@ -350,7 +350,7 @@ public sealed class Modellen : BrokerPagina
             knoppen.Children.Add(Bouw.Knop("Annuleren", (_, _) => ToonLezen(), "TextMutedBrush"));
 
             var inhoud = new StackPanel { Spacing = 10, Children = { soort, maker, grootte, doel, sterk, minder, notitie, knoppen, melding } };
-            Content = Bouw.Paneel(_naam, inhoud, "Bewerken");
+            Content = Bouw.Groep(_naam, "Bewerken", inhoud, "AccentBrushDark");
         }
 
         private static StackPanel Blok(string label, string tekst) => new()
