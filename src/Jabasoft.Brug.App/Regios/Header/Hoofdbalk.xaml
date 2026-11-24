@@ -57,10 +57,11 @@
                     Background="{ThemeResource HeaderSideGradientBrush}"
                     CornerRadius="0,0,0,48" />
 
-            <controls:Infoblok Grid.Column="2" Titel="INFO" Tekst="Volgt in fase 2" />
+            <!-- Eerste blok: wat de Brug zelf doet. Laatste blok: wat de broker doet. -->
+            <controls:Activiteitenblok x:Name="AppBlok" Grid.Column="2" Titel="ACTIVITEIT · BRUG" />
             <controls:Infoblok Grid.Column="4" Titel="SYSTEEM" Tekst="Volgt in fase 2" />
             <controls:Infoblok Grid.Column="6" Titel="TOKENS" Tekst="Volgt in fase 2" />
-            <controls:Infoblok Grid.Column="8" Titel="ACTIVITEIT" Tekst="Volgt in fase 2" />
+            <controls:Activiteitenblok x:Name="BrokerBlok" Grid.Column="8" Titel="ACTIVITEIT · BROKER" />
 
             <Border Grid.Column="10"
                     Background="{ThemeResource HeaderSideGradientBrush}"

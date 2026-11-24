@@ -9,8 +9,9 @@ public sealed partial class LegePagina : UserControl
     public LegePagina(MenuOnderdeel onderdeel)
     {
         InitializeComponent();
-        TitelTekst.Text = onderdeel.Titel.ToUpperInvariant();
-        FaseTekst.Text = onderdeel.Fase > 0 ? $"VOLGT IN FASE {onderdeel.Fase}" : "NOG LEEG";
+        // Geen paginatitel meer; de naam staat in de kaartbalk, het menu laat zien waar je bent.
+        var naam = onderdeel.Titel.ToUpperInvariant();
+        FaseTekst.Text = onderdeel.Fase > 0 ? $"{naam} · VOLGT IN FASE {onderdeel.Fase}" : $"{naam} · NOG LEEG";
         OmschrijvingTekst.Text = string.IsNullOrWhiteSpace(onderdeel.Omschrijving)
             ? "Dit scherm wordt later gevuld."
             : onderdeel.Omschrijving;

@@ -1,3 +1,4 @@
+using Jabasoft.Brug.App.Diensten;
 using Microsoft.UI.Xaml;
 
 namespace Jabasoft.Brug.App;
@@ -9,6 +10,13 @@ namespace Jabasoft.Brug.App;
 public partial class App : Application
 {
     private Window? _venster;
+    private BrokerLoglezer? _brokerLezer;
+
+    /// <summary>Wat de Brug zelf doet (eerste infoblok in de header).</summary>
+    public static Activiteitenlog AppLog { get; } = new();
+
+    /// <summary>Wat de broker doet, opgehaald via /logs (laatste infoblok in de header).</summary>
+    public static Activiteitenlog BrokerLog { get; } = new();
 
     public App()
     {
@@ -27,7 +35,13 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        AppLog.Schrijf("brug", $"Jabasoft.Brug {Versie} gestart");
+
+        _brokerLezer = new BrokerLoglezer(BrokerLog);
+        _brokerLezer.Start();
+
         _venster = new MainWindow();
+        _venster.Closed += (_, _) => _brokerLezer?.Dispose();
         _venster.Activate();
     }
 }

@@ -41,6 +41,15 @@ public sealed partial class MainWindow : Window
         }
 
         Schil.MainContent = scherm;
+        App.AppLog.Schrijf("brug", $"Scherm geopend: {Pad(sleutel)}");
+    }
+
+    /// <summary>"Broker › Nu bezig" voor een submenu-onderdeel, anders alleen de titel.</summary>
+    private static string Pad(string sleutel)
+    {
+        var titel = Menukaart.Zoek(sleutel)?.Titel ?? sleutel;
+        var punt = sleutel.IndexOf('.');
+        return punt > 0 && Menukaart.Zoek(sleutel[..punt]) is { } ouder ? $"{ouder.Titel} › {titel}" : titel;
     }
 
     /// <summary>Het scherm bij een menu-onderdeel; wat nog niet gebouwd is, wordt een lege pagina.</summary>

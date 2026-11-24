@@ -1,0 +1,76 @@
+<UserControl
+    x:Class="Jabasoft.Brug.App.Controls.Activiteitenblok"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:diensten="using:Jabasoft.Brug.App.Diensten">
+
+    <!--
+        Een infoblok met een meelopende lijst regels: tijd, bron, bericht.
+        Zelfde vorm als Infoblok, de tekst in oranje zoals het Activity-blok
+        in Jabasoft.App. Nieuwste regel onderaan; er wordt automatisch
+        meegescrold, behalve als je zelf omhoog hebt gescrold om terug te
+        lezen.
+
+        Tijd en bron hebben een vaste breedte, zodat de berichten onder
+        elkaar uitlijnen (WinUI kent geen SharedSizeGroup zoals WPF).
+    -->
+    <Border BorderBrush="{ThemeResource BorderBrush}"
+            BorderThickness="{StaticResource RegionBorderThickness}"
+            CornerRadius="{StaticResource RadiusLarge}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Background="{ThemeResource BorderBrush}"
+                    CornerRadius="{StaticResource RegionBorderInnerRadius}"
+                    Padding="12,4,12,4">
+                <Grid>
+                    <TextBlock Text="{x:Bind Titel, Mode=OneWay}"
+                               FontSize="{StaticResource FontSizeSmall}"
+                               FontWeight="Bold"
+                               CharacterSpacing="120"
+                               Foreground="{ThemeResource AccentForegroundBrush}" />
+                    <!-- Knippert kort bij elke nieuwe regel: dan zie je dat er iets binnenkomt. -->
+                    <Ellipse x:Name="Lampje"
+                             Width="8" Height="8"
+                             HorizontalAlignment="Right" VerticalAlignment="Center"
+                             Fill="{ThemeResource AccentForegroundBrush}"
+                             Opacity="0.25" />
+                </Grid>
+            </Border>
+
+            <ScrollViewer x:Name="Scroller"
+                          Grid.Row="1"
+                          Margin="10,4,6,6"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl x:Name="Regels">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="diensten:Activiteit">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="58" />
+                                    <ColumnDefinition Width="44" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Bind TijdTekst}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           Foreground="{ThemeResource TextPrimaryBrush}" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind Bron}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           Foreground="{ThemeResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="{x:Bind Bericht}"
+                                           FontSize="{StaticResource FontSizeSmall}"
+                                           Foreground="{ThemeResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Grid>
+    </Border>
+</UserControl>

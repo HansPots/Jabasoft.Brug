@@ -162,7 +162,7 @@ public sealed partial class Navigatiemenu : UserControl
     }
 
     /// <summary>
-    /// De gekozen knop krijgt een lichtere kleur. Terugzetten gaat met
+    /// De gekozen knop wordt wit. Terugzetten gaat met
     /// ClearValue, zodat de knop weer de kleur uit zijn stijl krijgt.
     /// </summary>
     private void MarkeerActief(string sleutel)
@@ -175,7 +175,7 @@ public sealed partial class Navigatiemenu : UserControl
         _actief = sleutel;
         if (_knoppen.TryGetValue(sleutel, out var knop))
         {
-            knop.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["AccentBrushLight"];
+            knop.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["Text01Brush"];
         }
     }
 }

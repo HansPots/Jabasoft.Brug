@@ -16,13 +16,11 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="32,24,32,32" Spacing="24">
 
-            <Grid>
-                <TextBlock Text="HEALTH" Style="{StaticResource PaginaTitelStijl}" />
-                <Border HorizontalAlignment="Right" VerticalAlignment="Center"
-                        Background="{ThemeResource TextMutedBrush}" CornerRadius="10,10,10,0">
-                    <TextBlock Text="VOORBEELDWEERGAVE · NOG GEEN LIVE GEGEVENS" Style="{StaticResource PilletjeTekstStijl}" />
-                </Border>
-            </Grid>
+            <!-- Geen paginatitel: het menu laat al zien waar je bent. -->
+            <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Background="{ThemeResource TextMutedBrush}" CornerRadius="10,10,10,0">
+                <TextBlock Text="VOORBEELDWEERGAVE · NOG GEEN LIVE GEGEVENS" Style="{StaticResource PilletjeTekstStijl}" />
+            </Border>
 
             <!-- Totaalstand: in de themakleuren (lila band, zwarte tekst). De
                  kleur van de stand zit alleen in het bolletje, met een zwarte

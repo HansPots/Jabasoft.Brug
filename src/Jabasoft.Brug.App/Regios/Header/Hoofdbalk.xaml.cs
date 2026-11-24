@@ -22,6 +22,9 @@ public sealed partial class Hoofdbalk : UserControl
         }
 
         HerstelBreedtes();
+
+        AppBlok.Volg(App.AppLog);
+        BrokerBlok.Volg(App.BrokerLog);
     }
 
     /// <summary>Het deel waarmee je het venster versleept.</summary>
@@ -43,6 +46,9 @@ public sealed partial class Hoofdbalk : UserControl
         }
     }
 
-    private void BewaarBreedtes() =>
+    private void BewaarBreedtes()
+    {
         Indeling.Bewaar(IndelingSleutel, [.. Blokkolommen.Select(k => Blokrij.ColumnDefinitions[k].Width.Value)]);
+        App.AppLog.Schrijf("brug", "Breedte van de infoblokken bewaard");
+    }
 }

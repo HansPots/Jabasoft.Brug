@@ -6,12 +6,6 @@
     <!-- Een scherm dat nog gevuld moet worden: titel, wat er komt, en in welke fase. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="32,24,32,24" Spacing="16" MaxWidth="900" HorizontalAlignment="Left">
-            <TextBlock x:Name="TitelTekst"
-                       FontSize="{StaticResource FontSizeHeading}"
-                       FontWeight="SemiBold"
-                       CharacterSpacing="60"
-                       Foreground="{ThemeResource TextPrimaryBrush}" />
-
             <Border BorderBrush="{ThemeResource BorderBrush}"
                     BorderThickness="{StaticResource RegionBorderThickness}"
                     CornerRadius="{StaticResource RadiusLarge}">
