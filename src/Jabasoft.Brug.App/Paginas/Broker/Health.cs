@@ -154,7 +154,8 @@ public sealed class Health : BrokerPagina
             : rust > 0 ? $"ALLES IN ORDE · {rust} IN RUST" : "ALLES IN ORDE";
 
         var links = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center };
-        var bol = Bouw.Bolletje(fouten > 0 ? "HealthErrorBrush" : rust > 0 ? "HealthBusyBrush" : "HealthOkBrush", 16);
+        // In rust (bijvoorbeeld de beeldservice zonder werk) is geen probleem: groen zolang er geen fout is.
+        var bol = Bouw.Bolletje(fouten > 0 ? "HealthErrorBrush" : "HealthOkBrush", 16);
         bol.Stroke = Bouw.Kleur("AccentForegroundBrush");
         bol.StrokeThickness = 2;
         links.Children.Add(bol);
