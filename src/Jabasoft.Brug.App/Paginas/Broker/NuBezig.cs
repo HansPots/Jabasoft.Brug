@@ -176,7 +176,7 @@ public sealed class NuBezig : BrokerPagina
             inhoud.Children.Add(Bouw.Tekst(kaart.Naam));
             inhoud.Children.Add(Bouw.Balkregel("VRAM", $"{Weergave.GbUitMiB(kaart.VramGebruiktMiB)} / {Weergave.GbUitMiB(kaart.VramTotaalMiB)} GB",
                 kaart.VramTotaalMiB == 0 ? 0 : (double)kaart.VramGebruiktMiB / kaart.VramTotaalMiB));
-            inhoud.Children.Add(Bouw.Balkregel("Belasting", $"{kaart.BelastingProcent} % · {kaart.TemperatuurC:0} °C", kaart.BelastingProcent / 100.0, "HeaderSideGradientBrush"));
+            inhoud.Children.Add(Bouw.Balkregel("Belasting", $"{kaart.BelastingProcent} % · {kaart.TemperatuurC:0} °C", kaart.BelastingProcent / 100.0));
         }
 
         return Bouw.Paneel("Videokaart", inhoud, meting.Kaarten.Count == 1 ? "1 kaart" : $"{meting.Kaarten.Count} kaarten");

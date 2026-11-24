@@ -62,7 +62,7 @@ public static class Bouw
     };
 
     /// <summary>Label en waarde op een regel, daaronder een balk die <paramref name="fractie"/> (0-1) gevuld is.</summary>
-    public static StackPanel Balkregel(string label, string waarde, double fractie, string kleur = "AccentBrush")
+    public static StackPanel Balkregel(string label, string waarde, double fractie, string kleur = "AccentBrushDark")
     {
         fractie = Math.Clamp(double.IsFinite(fractie) ? fractie : 0, 0, 1);
 
@@ -77,24 +77,32 @@ public static class Bouw
         return new StackPanel { Spacing = 4, Children = { kop, Balk(fractie, kleur) } };
     }
 
-    /// <summary>Een balk van 10 px hoog, links gevuld in de gegeven kleur, rechts donker.</summary>
-    public static Grid Balk(double fractie, string kleur = "AccentBrush", double hoogte = 10)
+    /// <summary>
+    /// Een balk van 10 px hoog: een donkere goot met daarop het gevulde deel,
+    /// beide met vier ronde hoeken. Standaard donkergeel (AccentBrushDark).
+    /// </summary>
+    public static Grid Balk(double fractie, string kleur = "AccentBrushDark", double hoogte = 10)
     {
         fractie = Math.Clamp(double.IsFinite(fractie) ? fractie : 0, 0, 1);
         var balk = new Grid { Height = hoogte };
         balk.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(fractie, 0.0001), GridUnitType.Star) });
         balk.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(1 - fractie, 0.0001), GridUnitType.Star) });
 
-        var rond = hoogte / 2;
-        var vol = new Border { Background = Kleur(kleur), CornerRadius = new CornerRadius(rond, fractie >= 1 ? rond : 0, fractie >= 1 ? rond : 0, rond) };
-        var leeg = new Border
+        var rond = new CornerRadius(hoogte / 2, hoogte / 2, hoogte / 2, hoogte / 2);
+        var goot = new Border
         {
             Background = new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(0xFF, 0x2A, 0x2A, 0x3A)),
-            CornerRadius = new CornerRadius(fractie <= 0 ? rond : 0, rond, rond, fractie <= 0 ? rond : 0),
+            CornerRadius = rond,
         };
-        Grid.SetColumn(leeg, 1);
-        balk.Children.Add(vol);
-        balk.Children.Add(leeg);
+        Grid.SetColumnSpan(goot, 2);
+        balk.Children.Add(goot);
+
+        if (fractie > 0)
+        {
+            // Minstens zo breed als hoog, zodat ook een klein deel een rond balkje blijft.
+            balk.Children.Add(new Border { Background = Kleur(kleur), CornerRadius = rond, MinWidth = hoogte });
+        }
+
         return balk;
     }
 

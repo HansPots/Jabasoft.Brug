@@ -110,7 +110,7 @@ public sealed class Tokens : BrokerPagina
                 string.Create(Bouw.Nl, $"Week {WeekNummer(week.Week)}  ·  {week.Start:d MMM} – {week.End:d MMM yyyy}"),
                 $"{Bouw.Getal(week.TotalTokens)} tokens · {Bouw.Getal(week.Calls)} aanroepen",
                 (double)week.TotalTokens / grootste,
-                week.Week == _gekozenWeek ? "AccentBrush" : "BorderBrush");
+                week.Week == _gekozenWeek ? "AccentBrush" : "AccentBrushDark");
 
             var knop = new Button
             {
@@ -170,8 +170,7 @@ public sealed class Tokens : BrokerPagina
             lijst.Children.Add(Bouw.Balkregel(
                 $"{onderdeel.Application} › {onderdeel.Onderdeel}",
                 $"{Bouw.Getal(onderdeel.TotalTokens)} · {Bouw.Getal(100.0 * onderdeel.TotalTokens / totaal, 0)}%",
-                (double)onderdeel.TotalTokens / totaal,
-                "HeaderSideGradientBrush"));
+                (double)onderdeel.TotalTokens / totaal));
         }
 
         return Bouw.Paneel("Per onderdeel", lijst, bereik);
