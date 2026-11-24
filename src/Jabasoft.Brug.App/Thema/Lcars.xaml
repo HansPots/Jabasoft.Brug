@@ -1,0 +1,78 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        LCARS-thema van de Brug: zwarte achtergrond, amberoranje accent,
+        lila randen. Dezelfde kleuren en namen als het LCARS-thema uit
+        Stylebook.Components, zodat wie de oude apps kent, de namen herkent.
+
+        Verschil met WPF: daar haalden componenten deze waarden op met
+        {DynamicResource}. WinUI 3 kent dat niet; daar is het
+        {ThemeResource}. De brushes staan daarom in ThemeDictionaries
+        ("Default"): alleen wat daar staat, wordt opnieuw opgezocht als het
+        thema wisselt. Er is nu maar een thema, maar zo kan er later een
+        tweede bij zonder dat er een component hoeft te veranderen.
+    -->
+
+    <Color x:Key="AccentColor">#FF9900</Color>
+    <Color x:Key="AccentColorDark">#CC7A00</Color>
+    <Color x:Key="AccentColorLight">#FFCC99</Color>
+    <Color x:Key="BackgroundColor">#000000</Color>
+    <Color x:Key="SurfaceColor">#000000</Color>
+    <Color x:Key="BorderColor">#9999CC</Color>
+    <Color x:Key="TextPrimaryColor">#FF9900</Color>
+    <Color x:Key="TextMutedColor">#CC6666</Color>
+    <Color x:Key="Text01Color">#FFFFFF</Color>
+    <!-- Tekst en iconen BOVENOP een accentvlak: zwart, nooit oranje op oranje. -->
+    <Color x:Key="AccentForegroundColor">#000000</Color>
+
+    <Color x:Key="HeaderGradientStartColor">#FFB16C</Color>
+    <Color x:Key="HeaderGradientMidColor">#FF8066</Color>
+    <Color x:Key="HeaderGradientEndColor">#B63C50</Color>
+    <Color x:Key="HeaderSideGradientStartColor">#8E89FF</Color>
+    <Color x:Key="HeaderSideGradientEndColor">#7774F5</Color>
+
+    <Color x:Key="HealthOkColor">#66CC66</Color>
+    <Color x:Key="HealthBusyColor">#FF9900</Color>
+    <Color x:Key="HealthErrorColor">#CC4444</Color>
+
+    <!-- Hoekrondingen: LCARS is rond. Altijd alle vier de hoeken uitschrijven. -->
+    <CornerRadius x:Key="RadiusSmall">3,3,3,3</CornerRadius>
+    <CornerRadius x:Key="RadiusMedium">6,6,6,6</CornerRadius>
+    <CornerRadius x:Key="RadiusLarge">12,12,12,12</CornerRadius>
+    <CornerRadius x:Key="RadiusXLarge">18,18,18,18</CornerRadius>
+    <CornerRadius x:Key="RadiusPill">22,22,22,22</CornerRadius>
+
+    <!-- In WinUI moeten alle losse items VOOR dit blok staan; daarna mag er
+         niets meer volgen, anders weigert de XAML-compiler (WMC0035). -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+            <SolidColorBrush x:Key="AccentBrushDark" Color="{StaticResource AccentColorDark}" />
+            <SolidColorBrush x:Key="AccentBrushLight" Color="{StaticResource AccentColorLight}" />
+            <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+            <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+            <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+            <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}" />
+            <SolidColorBrush x:Key="Text01Brush" Color="{StaticResource Text01Color}" />
+            <SolidColorBrush x:Key="AccentForegroundBrush" Color="{StaticResource AccentForegroundColor}" />
+            <SolidColorBrush x:Key="HeaderGradientMidBrush" Color="{StaticResource HeaderGradientMidColor}" />
+            <SolidColorBrush x:Key="HealthOkBrush" Color="{StaticResource HealthOkColor}" />
+            <SolidColorBrush x:Key="HealthBusyBrush" Color="{StaticResource HealthBusyColor}" />
+            <SolidColorBrush x:Key="HealthErrorBrush" Color="{StaticResource HealthErrorColor}" />
+
+            <LinearGradientBrush x:Key="HeaderGradientBrush" StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Offset="0" Color="{StaticResource HeaderGradientStartColor}" />
+                <GradientStop Offset="0.55" Color="{StaticResource HeaderGradientMidColor}" />
+                <GradientStop Offset="1" Color="{StaticResource HeaderGradientEndColor}" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="HeaderSideGradientBrush" StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Offset="0" Color="{StaticResource HeaderSideGradientStartColor}" />
+                <GradientStop Offset="1" Color="{StaticResource HeaderSideGradientEndColor}" />
+            </LinearGradientBrush>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+</ResourceDictionary>

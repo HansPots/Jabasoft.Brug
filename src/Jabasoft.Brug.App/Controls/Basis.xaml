@@ -1,0 +1,87 @@
+<UserControl
+    x:Class="Jabasoft.Brug.App.Controls.Basis"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        De vaste schil van de Brug, dezelfde indeling als Basis in
+        Jabasoft.App: header en footer over de volle breedte, daartussen
+        links het menu (256), rechts de actiebalk (48) en in het midden de
+        inhoud, die als enige meegroeit.
+
+        Vijf content-slots: HeaderContent, MenuContent, MainContent,
+        ActionContent en FooterContent. Geen ervan heet "Content": die
+        eigenschap gebruikt de UserControl zelf al voor deze indeling.
+
+        Elk blok geeft ruimte aan zijn linker- en bovenkant; de rand rechts
+        en onder komt van de opvulling op de buitenste Border. Zo is elke
+        tussenruimte precies een keer RegionGapSize.
+
+        WinUI: de slots zijn gekoppeld met x:Bind in plaats van Binding met
+        RelativeSource. x:Bind wordt bij het bouwen gecontroleerd en is
+        sneller; Mode=OneWay is nodig omdat x:Bind standaard maar een keer
+        kijkt.
+    -->
+    <Border Background="{ThemeResource BackgroundBrush}"
+            Padding="{StaticResource RegionGapEndThickness}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Height="{StaticResource HeaderHeight}"
+                    Margin="{StaticResource RegionGapLeftTopThickness}"
+                    Background="{ThemeResource SurfaceBrush}">
+                <ContentPresenter Content="{x:Bind HeaderContent, Mode=OneWay}"
+                                  HorizontalContentAlignment="Stretch"
+                                  VerticalContentAlignment="Stretch" />
+            </Border>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Width="{StaticResource MenuWidth}"
+                        Margin="{StaticResource RegionGapLeftTopThickness}"
+                        Background="{ThemeResource SurfaceBrush}">
+                    <ContentPresenter Content="{x:Bind MenuContent, Mode=OneWay}"
+                                      HorizontalContentAlignment="Stretch"
+                                      VerticalContentAlignment="Stretch" />
+                </Border>
+
+                <Border Grid.Column="1"
+                        Margin="{StaticResource RegionGapLeftTopThickness}"
+                        Background="{ThemeResource BackgroundBrush}">
+                    <ContentPresenter Content="{x:Bind MainContent, Mode=OneWay}"
+                                      HorizontalContentAlignment="Stretch"
+                                      VerticalContentAlignment="Stretch" />
+                </Border>
+
+                <Border Grid.Column="2"
+                        Width="{StaticResource ActionWidth}"
+                        Margin="{StaticResource RegionGapLeftTopThickness}"
+                        Background="{ThemeResource SurfaceBrush}">
+                    <ContentPresenter Content="{x:Bind ActionContent, Mode=OneWay}"
+                                      HorizontalContentAlignment="Stretch"
+                                      VerticalContentAlignment="Stretch" />
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="2"
+                    Height="{StaticResource FooterHeight}"
+                    Margin="{StaticResource RegionGapLeftTopThickness}"
+                    Background="{ThemeResource SurfaceBrush}">
+                <ContentPresenter Content="{x:Bind FooterContent, Mode=OneWay}"
+                                  HorizontalContentAlignment="Stretch"
+                                  VerticalContentAlignment="Stretch" />
+            </Border>
+        </Grid>
+    </Border>
+</UserControl>

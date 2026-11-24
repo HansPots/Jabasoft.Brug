@@ -1,0 +1,66 @@
+<UserControl
+    x:Class="Jabasoft.Brug.App.Regios.Header.Hoofdbalk"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Jabasoft.Brug.App.Controls">
+
+    <!--
+        De header (210 hoog), opgebouwd zoals in Jabasoft.App: bovenin de
+        gekleurde titelstrook, daaronder een rij blokken tussen twee lila
+        ellebogen. In fase 1 zijn de blokken nog leeg; in fase 2 komen er
+        echte gegevens in (info, systeem, tokens, activiteit).
+
+        De titelstrook is ook het stuk waarmee je het venster versleept (zie
+        MainWindow: SetTitleBar). Rechts blijft ruimte vrij voor de
+        vensterknoppen van Windows.
+    -->
+    <Grid RowSpacing="6">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid x:Name="Titelstrook" Grid.Row="0" Background="Transparent">
+            <Border Margin="0,0,150,0"
+                    Background="{ThemeResource HeaderGradientBrush}"
+                    CornerRadius="20,20,20,20">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,24,0" Spacing="16">
+                    <TextBlock Text="JABASOFT"
+                               FontSize="20"
+                               FontWeight="Bold"
+                               CharacterSpacing="250"
+                               Foreground="{ThemeResource AccentForegroundBrush}" />
+                    <TextBlock Text="BRUG"
+                               FontSize="20"
+                               FontWeight="Light"
+                               CharacterSpacing="250"
+                               Foreground="{ThemeResource AccentForegroundBrush}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="48" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Background="{ThemeResource HeaderSideGradientBrush}"
+                    CornerRadius="24,0,0,24" />
+
+            <controls:Infoblok Grid.Column="1" Titel="INFO" Tekst="Volgt in fase 2" />
+            <controls:Infoblok Grid.Column="2" Titel="SYSTEEM" Tekst="Volgt in fase 2" />
+            <controls:Infoblok Grid.Column="3" Titel="TOKENS" Tekst="Volgt in fase 2" />
+            <controls:Infoblok Grid.Column="4" Titel="ACTIVITEIT" Tekst="Volgt in fase 2" />
+
+            <Border Grid.Column="5"
+                    Background="{ThemeResource HeaderSideGradientBrush}"
+                    CornerRadius="0,24,24,0" />
+        </Grid>
+    </Grid>
+</UserControl>

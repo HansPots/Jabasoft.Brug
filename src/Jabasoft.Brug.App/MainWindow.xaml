@@ -1,0 +1,26 @@
+<Window
+    x:Class="Jabasoft.Brug.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Jabasoft.Brug.App.Controls"
+    xmlns:header="using:Jabasoft.Brug.App.Regios.Header"
+    xmlns:menu="using:Jabasoft.Brug.App.Regios.Menu"
+    xmlns:actie="using:Jabasoft.Brug.App.Regios.Actie"
+    xmlns:footer="using:Jabasoft.Brug.App.Regios.Footer"
+    Title="Jabasoft.Brug">
+
+    <controls:Basis x:Name="Schil">
+        <controls:Basis.HeaderContent>
+            <header:Hoofdbalk x:Name="Header" />
+        </controls:Basis.HeaderContent>
+        <controls:Basis.MenuContent>
+            <menu:Navigatiemenu x:Name="Menu" />
+        </controls:Basis.MenuContent>
+        <controls:Basis.ActionContent>
+            <actie:Actiebalk x:Name="Acties" />
+        </controls:Basis.ActionContent>
+        <controls:Basis.FooterContent>
+            <footer:Statusbalk x:Name="Footer" />
+        </controls:Basis.FooterContent>
+    </controls:Basis>
+</Window>
