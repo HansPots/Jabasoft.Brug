@@ -16,7 +16,7 @@
         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
             <TextBlock Text="{x:Bind Label, Mode=OneWay}" Style="{StaticResource LabelStijl}" />
             <TextBlock Text="{x:Bind Waarde, Mode=OneWay}"
-                       FontSize="30"
+                       FontSize="{StaticResource FontSizeBig}"
                        FontWeight="SemiBold"
                        Foreground="{ThemeResource TextPrimaryBrush}"
                        TextTrimming="CharacterEllipsis" />

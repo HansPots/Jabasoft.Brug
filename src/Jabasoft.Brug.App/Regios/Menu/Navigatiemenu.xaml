@@ -34,7 +34,7 @@
                 CornerRadius="12,12,12,12"
                 Padding="14,6,14,6">
             <TextBlock x:Name="VersieTekst"
-                       FontSize="{StaticResource FontSizeSmall}"
+                       FontSize="{StaticResource FontSizeTiny}"
                        FontWeight="Bold"
                        CharacterSpacing="120"
                        Foreground="{ThemeResource AccentBrush}" />

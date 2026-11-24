@@ -46,7 +46,7 @@
                            VerticalAlignment="Center" />
                 <TextBlock x:Name="Totaal" Grid.Column="1"
                            Text="—"
-                           FontSize="30"
+                           FontSize="{StaticResource FontSizeBig}"
                            FontWeight="Bold"
                            Foreground="{ThemeResource TextPrimaryBrush}" />
 

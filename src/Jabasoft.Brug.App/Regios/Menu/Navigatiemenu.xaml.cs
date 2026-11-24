@@ -117,7 +117,7 @@ public sealed partial class Navigatiemenu : UserControl
         {
             FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["IconFontFamily"],
             Glyph = onderdeel.Icoon,
-            FontSize = 16,
+            FontSize = 18,
             VerticalAlignment = VerticalAlignment.Center,
         };
         inhoud.Children.Add(icoon);
@@ -137,7 +137,7 @@ public sealed partial class Navigatiemenu : UserControl
             {
                 FontFamily = (Microsoft.UI.Xaml.Media.FontFamily)Application.Current.Resources["IconFontFamily"],
                 Glyph = ChevronDicht,
-                FontSize = 12,
+                FontSize = 13,
                 VerticalAlignment = VerticalAlignment.Center,
             };
             Grid.SetColumn(chevron, 2);
