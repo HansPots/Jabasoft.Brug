@@ -104,7 +104,7 @@ public sealed class Modellen : BrokerPagina
                 Bouw.Zet(raster, kaart, i / 2, i % 2);
             }
 
-            // Elke groep in een roze vlak met de gele band erboven, zoals het menu.
+            // Elke groep in een roze kader (zelfde vorm als een paneel), met de lila modelkaarten erin.
             Lijf.Children.Add(Bouw.Groep(kop, leden.Count.ToString(Bouw.Nl), raster));
         }
     }

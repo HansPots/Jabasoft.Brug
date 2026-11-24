@@ -212,17 +212,52 @@ public static class Bouw
     }
 
     /// <summary>
-    /// Een groep bij elkaar horende panelen, zoals het menu links: een roze
-    /// vlak met vier ronde hoeken, bovenin de gele band met de naam van de
-    /// groep (en een aantal), daaronder de inhoud. De panelen erin hebben een
-    /// zwarte achtergrond, zodat ze los van het roze staan.
+    /// Een groep bij elkaar horende panelen: dezelfde vorm als een Paneel
+    /// (kader, titelbalk, vier ronde hoeken), maar in roze, met de naam van de
+    /// groep links en het aantal rechts in de balk. Zwarte binnenkant, met de
+    /// lila panelen erin.
     /// </summary>
-    public static Border Groep(string titel, string waarde, UIElement inhoud) => new()
+    public static Border Groep(string titel, string waarde, UIElement inhoud)
     {
-        Background = Kleur("TextMutedBrush"),
-        CornerRadius = new CornerRadius(30, 30, 30, 30),
-        Padding = new Thickness(12),
-        Child = new StackPanel { Spacing = 12, Children = { Band((titel, waarde)), inhoud } },
+        var balkTekst = new Grid();
+        balkTekst.Children.Add(BalkTekst(titel.ToUpper(Nl), HorizontalAlignment.Left));
+        balkTekst.Children.Add(BalkTekst(waarde.ToUpper(Nl), HorizontalAlignment.Right));
+
+        var balk = new Border
+        {
+            Background = Kleur("TextMutedBrush"),
+            CornerRadius = new CornerRadius(9, 9, 0, 0),
+            Padding = new Thickness(14, 5, 14, 5),
+            Child = balkTekst,
+        };
+
+        var lijf = new ContentPresenter { Content = inhoud, Margin = new Thickness(14, 12, 14, 14) };
+        Grid.SetRow(lijf, 1);
+
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.Children.Add(balk);
+        grid.Children.Add(lijf);
+
+        return new Border
+        {
+            Background = Kleur("BackgroundBrush"),
+            BorderBrush = Kleur("TextMutedBrush"),
+            BorderThickness = new Thickness(3),
+            CornerRadius = new CornerRadius(12, 12, 12, 12),
+            Child = grid,
+        };
+    }
+
+    private static TextBlock BalkTekst(string tekst, HorizontalAlignment uitlijning) => new()
+    {
+        Text = tekst,
+        HorizontalAlignment = uitlijning,
+        FontSize = Maat("FontSizeSmall"),
+        FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+        CharacterSpacing = 120,
+        Foreground = Kleur("AccentForegroundBrush"),
     };
 
     /// <summary>Een Paneel met alleen een melding erin, voor "niets te tonen" of een fout bovenaan een scherm.</summary>
