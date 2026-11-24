@@ -25,7 +25,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 
-    <Version>2.0.0.23</Version>
+    <Version>2.0.0.24</Version>
     <Product>Jabasoft.Brug</Product>
   </PropertyGroup>
 
