@@ -31,6 +31,33 @@ public sealed class Logs : BrokerPagina
         _fouten.Toggled += (_, _) => Toon();
         Unloaded += (_, _) => Ontkoppel();
         Loaded += (_, _) => Volg();
+
+        // Eigen opbouw in plaats van het scrollende vlak van BrokerPagina:
+        // de zoekbalk en het kader blijven staan, alleen de regels in het
+        // kader LOG scrollen.
+        var balk = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
+        balk.Children.Add(_zoek);
+        balk.Children.Add(_bron);
+        balk.Children.Add(_fouten);
+        _teller.VerticalAlignment = VerticalAlignment.Center;
+        balk.Children.Add(_teller);
+
+        var scroller = new ScrollViewer
+        {
+            Content = _regels,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+        };
+        var paneel = Bouw.Paneel("Log", scroller);
+        paneel.VerticalAlignment = VerticalAlignment.Stretch;
+        Grid.SetRow(paneel, 1);
+
+        var scherm = new Grid { Margin = new Thickness(32, 24, 32, 32), RowSpacing = 24 };
+        scherm.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        scherm.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        scherm.Children.Add(balk);
+        scherm.Children.Add(paneel);
+        Content = scherm;
     }
 
     /// <summary>De gekozen log(s): Alles = broker en Brug samen.</summary>
@@ -47,18 +74,6 @@ public sealed class Logs : BrokerPagina
 
     protected override Task LaadAsync()
     {
-        if (Lijf.Children.Count == 0)
-        {
-            var balk = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16 };
-            balk.Children.Add(_zoek);
-            balk.Children.Add(_bron);
-            balk.Children.Add(_fouten);
-            _teller.VerticalAlignment = VerticalAlignment.Center;
-            balk.Children.Add(_teller);
-            Lijf.Children.Add(balk);
-            Lijf.Children.Add(Bouw.Paneel("Log", _regels));
-        }
-
         Toon();
         return Task.CompletedTask;
     }
@@ -101,11 +116,6 @@ public sealed class Logs : BrokerPagina
 
     private void Toon()
     {
-        if (Lijf.Children.Count == 0)
-        {
-            return;
-        }
-
         _regels.Children.Clear();
         var alles = AlleRegels();
         var passend = alles.Where(Past).Reverse().Take(MaxZichtbaar).ToList();
