@@ -20,46 +20,78 @@ public sealed class Modellen : BrokerPagina
     /// <summary>De taakvelden in de broker-instellingen, met hoe ze op het scherm heten.</summary>
     private static readonly (string Veld, string Taak)[] Taken =
     [
-        ("chatModel", "Daily chat"),
+        ("chatModel", "Chat"),
         ("codeModel", "Code"),
-        ("controleModel", "Controle"),
+        ("controleModel", "Ctrl"),
         ("beeldModel", "Beeld"),
-        ("embedModel", "Zoeken"),
+        ("embedModel", "Zoek"),
         ("gooseModel", "Goose"),
         ("hermesModel", "Hermes"),
-        ("hermesLokaalModel", "Hermes lokaal"),
+        ("hermesLokaalModel", "Hermes lok."),
     ];
+
+    /// <summary>Vaste kolombreedtes, zodat taak, soort en tokens in elke regel en elke groep onder elkaar staan.</summary>
+    private static readonly GridLength KolomTaken = new(230);
+    private static readonly GridLength KolomSoort = new(140);
+    private static readonly GridLength KolomTokens = new(90);
+
+    // Wat er het laatst is opgehaald; een klik op een regel tekent opnieuw zonder alles op te halen.
+    private Dictionary<string, Modelinfo> _info = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, List<string>> _taken = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, TokenModel> _tokens = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _verborgen = [];
+    private List<string> _opServer = [];
+    private List<string> _namen = [];
+    private bool _serverGelukt;
+    private string? _serverFout;
+    private string? _gekozen;
+    private bool _verborgenOpen;
 
     protected override async Task LaadAsync()
     {
-        var beschrijvingen = await BrugDatabase.ModellenAsync();
-        var server = await BrokerApi.ServerModellenAsync();
-        var instellingen = await BrokerApi.InstellingenAsync();
-        var verbruik = await BrokerApi.TokenModellenAsync();
+        var beschrijvingenTaak = BrugDatabase.ModellenAsync();
+        var serverTaak = BrokerApi.ServerModellenAsync();
+        var instellingenTaak = BrokerApi.InstellingenAsync();
+        var verbruikTaak = BrokerApi.TokenModellenAsync();
+        await Task.WhenAll(beschrijvingenTaak, serverTaak, instellingenTaak, verbruikTaak);
 
-        var serverActief = Lees(instellingen.Waarde);
-        var opServer = server.Waarde?.Models ?? [];
-        var verborgen = (serverActief?["verborgen"] as JsonArray)?.Select(n => n?.GetValue<string>() ?? "").ToHashSet() ?? [];
-        var tokens = (verbruik.Waarde ?? []).ToDictionary(m => m.Model ?? "", StringComparer.OrdinalIgnoreCase);
+        var beschrijvingen = beschrijvingenTaak.Result;
+        var server = serverTaak.Result;
+        var serverActief = Lees(instellingenTaak.Result.Waarde);
 
-        var taken = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        _serverGelukt = server.Gelukt;
+        _serverFout = server.Fout;
+        _opServer = server.Waarde?.Models ?? [];
+        _verborgen = (serverActief?["verborgen"] as JsonArray)?.Select(n => n?.GetValue<string>() ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+        _tokens = (verbruikTaak.Result.Waarde ?? []).GroupBy(m => m.Model ?? "").ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        _info = beschrijvingen.ToDictionary(m => m.Naam, StringComparer.OrdinalIgnoreCase);
+        _namen = [.. _opServer.Concat(beschrijvingen.Select(m => m.Naam)).Distinct(StringComparer.OrdinalIgnoreCase)];
+
+        _taken = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var (veld, taak) in Taken)
         {
             if (serverActief?[veld]?.GetValue<string>() is { Length: > 0 } model)
             {
-                (taken.TryGetValue(model, out var lijst) ? lijst : taken[model] = []).Add(taak);
+                (_taken.TryGetValue(model, out var lijst) ? lijst : _taken[model] = []).Add(taak);
             }
         }
 
-        // Alle namen: wat op de server staat, plus wat we beschreven hebben.
-        var info = beschrijvingen.ToDictionary(m => m.Naam, StringComparer.OrdinalIgnoreCase);
-        var namen = opServer.Concat(beschrijvingen.Select(m => m.Naam)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        Teken();
+    }
 
+    /// <summary>Links de lijst per groep, rechts het detail van het gekozen model.</summary>
+    private void Teken()
+    {
         Lijf.Children.Clear();
+        Lijf.Children.Add(Bouw.Band(
+            ("Op de server", _serverGelukt ? _opServer.Count.ToString(Bouw.Nl) : "—"),
+            ("Met een taak", _taken.Count.ToString(Bouw.Nl)),
+            ("Verborgen", _verborgen.Count.ToString(Bouw.Nl)),
+            ("Beschreven", _namen.Count(_info.ContainsKey).ToString(Bouw.Nl))));
 
-        if (!server.Gelukt)
+        if (!_serverGelukt)
         {
-            Lijf.Children.Add(Bouw.Meldingpaneel("AI-server", $"De modellijst is niet op te halen ({server.Fout}). Hieronder de beschreven modellen."));
+            Lijf.Children.Add(Bouw.Meldingpaneel("AI-server", $"De modellijst is niet op te halen ({_serverFout}). Hieronder de beschreven modellen."));
         }
 
         if (!BrugDatabase.Beschikbaar)
@@ -67,46 +99,136 @@ public sealed class Modellen : BrokerPagina
             Lijf.Children.Add(Bouw.Meldingpaneel("Database", $"{BrugDatabase.Naam} niet bereikbaar ({BrugDatabase.Fout}): de ingebouwde beschrijvingen worden getoond en aanpassen kan nu niet."));
         }
 
-        Lijf.Children.Insert(0, Bouw.Band(
-            ("Op de server", server.Gelukt ? opServer.Count.ToString(Bouw.Nl) : "—"),
-            ("Met een taak", taken.Count.ToString(Bouw.Nl)),
-            ("Verborgen", verborgen.Count.ToString(Bouw.Nl)),
-            ("Beschreven", namen.Count(info.ContainsKey).ToString(Bouw.Nl))));
-
-        var groepen = new (string Kop, Func<string, bool> Hoort)[]
+        var groepen = new (string Kop, List<string> Leden)[]
         {
-            ("In gebruik", n => taken.ContainsKey(n)),
-            ("Beschikbaar", n => !taken.ContainsKey(n) && !verborgen.Contains(n) && (!server.Gelukt || opServer.Contains(n))),
-            ("Verborgen", n => !taken.ContainsKey(n) && verborgen.Contains(n)),
-            ("Niet op de server", n => !taken.ContainsKey(n) && !verborgen.Contains(n) && server.Gelukt && !opServer.Contains(n)),
+            ("In gebruik", Leden(n => _taken.ContainsKey(n))),
+            ("Beschikbaar", Leden(n => !_taken.ContainsKey(n) && !_verborgen.Contains(n) && (!_serverGelukt || _opServer.Contains(n)))),
+            ("Verborgen", Leden(n => !_taken.ContainsKey(n) && _verborgen.Contains(n))),
+            ("Niet op de server", Leden(n => !_taken.ContainsKey(n) && !_verborgen.Contains(n) && _serverGelukt && !_opServer.Contains(n))),
         };
 
-        foreach (var (kop, hoort) in groepen)
+        // Bij het openen: het eerste model dat in gebruik is (of anders het eerste dat er is).
+        if (_gekozen is null || !_namen.Contains(_gekozen, StringComparer.OrdinalIgnoreCase))
         {
-            var leden = namen.Where(hoort).OrderBy(n => info.TryGetValue(n, out var i) ? i.Soort : "~").ThenBy(n => n).ToList();
+            _gekozen = groepen.SelectMany(g => g.Leden).FirstOrDefault();
+        }
+
+        var links = new StackPanel { Spacing = 16 };
+        foreach (var (kop, leden) in groepen)
+        {
             if (leden.Count == 0)
             {
                 continue;
             }
 
-            var raster = Bouw.Kolommen(2);
-            for (var i = 0; i < leden.Count; i++)
+            var lijst = new StackPanel();
+            var ingeklapt = kop == "Verborgen" && !_verborgenOpen && !leden.Contains(_gekozen ?? "");
+            if (!ingeklapt)
             {
-                var naam = leden[i];
-                var kaart = new Modelkaart(
-                    naam,
-                    info.GetValueOrDefault(naam),
-                    taken.GetValueOrDefault(naam) ?? [],
-                    verborgen.Contains(naam),
-                    !server.Gelukt || opServer.Contains(naam),
-                    tokens.GetValueOrDefault(naam));
-                kaart.Bewaard += async (_, _) => await VerversAsync();
-                Bouw.Zet(raster, kaart, i / 2, i % 2);
+                foreach (var naam in leden)
+                {
+                    lijst.Children.Add(Regel(naam));
+                }
             }
 
-            // Elke groep in een roze kader (zelfde vorm als een paneel), met de lila modelkaarten erin.
-            Lijf.Children.Add(Bouw.Groep(kop, leden.Count.ToString(Bouw.Nl), raster));
+            if (kop == "Verborgen")
+            {
+                var knop = Bouw.Knop(ingeklapt ? $"Toon {leden.Count} verborgen modellen" : "Inklappen", (_, _) =>
+                {
+                    _verborgenOpen = ingeklapt;
+                    Teken();
+                }, "BorderBrush");
+                knop.Margin = new Thickness(0, ingeklapt ? 0 : 8, 0, 0);
+                lijst.Children.Add(knop);
+            }
+
+            links.Children.Add(Bouw.Groep(kop, leden.Count.ToString(Bouw.Nl), lijst));
         }
+
+        var raster = new Grid { ColumnSpacing = 24 };
+        raster.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        raster.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
+        raster.Children.Add(links);
+
+        if (_gekozen is { } gekozen)
+        {
+            var detail = new Modelkaart(
+                gekozen,
+                _info.GetValueOrDefault(gekozen),
+                _taken.GetValueOrDefault(gekozen) ?? [],
+                _verborgen.Contains(gekozen),
+                !_serverGelukt || _opServer.Contains(gekozen),
+                _tokens.GetValueOrDefault(gekozen))
+            {
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            detail.Bewaard += async (_, _) => await VerversAsync();
+            Grid.SetColumn(detail, 1);
+            raster.Children.Add(detail);
+        }
+
+        Lijf.Children.Add(raster);
+    }
+
+    private List<string> Leden(Func<string, bool> hoort) =>
+        [.. _namen.Where(hoort).OrderBy(n => _info.TryGetValue(n, out var i) ? i.Soort : "~").ThenBy(n => n)];
+
+    /// <summary>Eén model als regel met vaste kolommen: naam, taken, soort, tokens. Klik = tonen in het detail.</summary>
+    private Button Regel(string naam)
+    {
+        var gekozen = string.Equals(naam, _gekozen, StringComparison.OrdinalIgnoreCase);
+        var tekstKleur = Bouw.Kleur(gekozen ? "AccentForegroundBrush" : "TextPrimaryBrush");
+        var bijKleur = Bouw.Kleur(gekozen ? "AccentForegroundBrush" : "TextMutedBrush");
+
+        var rij = new Grid { ColumnSpacing = 12 };
+        rij.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        rij.ColumnDefinitions.Add(new ColumnDefinition { Width = KolomTaken });
+        rij.ColumnDefinitions.Add(new ColumnDefinition { Width = KolomSoort });
+        rij.ColumnDefinitions.Add(new ColumnDefinition { Width = KolomTokens });
+
+        var naamTekst = Bouw.Tekst(naam);
+        naamTekst.Foreground = tekstKleur;
+        naamTekst.VerticalAlignment = VerticalAlignment.Center;
+        rij.Children.Add(naamTekst);
+
+        var pillen = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var taak in _taken.GetValueOrDefault(naam) ?? [])
+        {
+            pillen.Children.Add(Bouw.Pil(taak, "AccentBrush"));
+        }
+
+        Grid.SetColumn(pillen, 1);
+        rij.Children.Add(pillen);
+
+        var soort = Bouw.Tekst(_info.TryGetValue(naam, out var info) ? info.Soort.ToLower(Bouw.Nl) : "—", "LabelStijl");
+        soort.Foreground = bijKleur;
+        soort.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(soort, 2);
+        rij.Children.Add(soort);
+
+        var tokens = Bouw.Tekst(_tokens.TryGetValue(naam, out var t) ? Bouw.Kort(t.TotalTokens) : "—", "LabelStijl");
+        tokens.Foreground = bijKleur;
+        tokens.HorizontalAlignment = HorizontalAlignment.Right;
+        tokens.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(tokens, 3);
+        rij.Children.Add(tokens);
+
+        var knop = new Button
+        {
+            Content = rij,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Background = gekozen ? Bouw.Kleur("BorderBrush") : null,
+            BorderThickness = new Thickness(0),
+            CornerRadius = new CornerRadius(12, 12, 12, 12),
+            Padding = new Thickness(10, 5, 10, 5),
+        };
+        knop.Click += (_, _) =>
+        {
+            _gekozen = naam;
+            Teken();
+        };
+        return knop;
     }
 
     /// <summary>Het deel van de instellingen voor de server die nu gekozen is (lmStudio of ollama).</summary>

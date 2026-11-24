@@ -24,6 +24,14 @@ public static class Bouw
 
     public static string Getal(double waarde, int decimalen) => waarde.ToString($"N{decimalen}", Nl);
 
+    /// <summary>Een groot getal kort: 17,3 M · 6,2 K · 950.</summary>
+    public static string Kort(long waarde) => waarde switch
+    {
+        >= 1_000_000 => $"{(waarde / 1_000_000.0).ToString("0.0", Nl)} M",
+        >= 1_000 => $"{(waarde / 1_000.0).ToString("0.0", Nl)} K",
+        _ => waarde.ToString(Nl),
+    };
+
     /// <summary>Een duur kort en leesbaar: 0,4 s · 12 s · 3 min 05 s · 2 u 10 min.</summary>
     public static string Duur(TimeSpan duur) => duur.TotalSeconds switch
     {
