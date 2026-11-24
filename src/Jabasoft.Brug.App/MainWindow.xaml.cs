@@ -56,6 +56,7 @@ public sealed partial class MainWindow : Window
     /// <summary>Het scherm bij een menu-onderdeel; wat nog niet gebouwd is, wordt een lege pagina.</summary>
     private static UIElement MaakScherm(MenuOnderdeel onderdeel) => onderdeel.Sleutel switch
     {
+        "hoofdscherm" => new Hoofdscherm(),
         "broker.nubezig" => new Paginas.Broker.NuBezig(),
         "broker.health" => new Paginas.Broker.Health(),
         _ => new LegePagina(onderdeel),

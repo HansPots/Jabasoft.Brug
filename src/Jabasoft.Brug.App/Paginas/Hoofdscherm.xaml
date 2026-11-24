@@ -1,0 +1,17 @@
+<UserControl
+    x:Class="Jabasoft.Brug.App.Paginas.Hoofdscherm"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Het hoofdscherm: de brug. Stretch Uniform houdt de verhouding vast
+        (2400x900); het beeld schaalt mee met het venster maar wordt nooit
+        uitgerekt of afgesneden.
+    -->
+    <Grid Padding="24">
+        <Image x:Name="Brug"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center" />
+    </Grid>
+</UserControl>
