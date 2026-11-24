@@ -194,7 +194,8 @@ public sealed class Modellen : BrokerPagina
         var pillen = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
         foreach (var taak in _taken.GetValueOrDefault(naam) ?? [])
         {
-            pillen.Children.Add(Bouw.Pil(taak, "AccentBrush"));
+            // Op de donkergele gekozen regel zou een oranje pilletje wegvallen: daar lila.
+            pillen.Children.Add(Bouw.Pil(taak, gekozen ? "BorderBrush" : "AccentBrush"));
         }
 
         Grid.SetColumn(pillen, 1);
