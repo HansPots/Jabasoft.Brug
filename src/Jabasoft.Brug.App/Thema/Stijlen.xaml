@@ -63,7 +63,8 @@
         <Setter Property="Foreground" Value="{ThemeResource AccentForegroundBrush}" />
         <Setter Property="Height" Value="44" />
         <Setter Property="Padding" Value="16,0,14,0" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeTitle}" />
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="CornerRadius" Value="18,18,18,0" />
     </Style>
 
@@ -72,9 +73,10 @@
     <Style x:Key="SubmenuKnopStijl" TargetType="Button" BasedOn="{StaticResource LcarsKnopBasis}">
         <Setter Property="Background" Value="{ThemeResource HeaderSideGradientBrush}" />
         <Setter Property="Foreground" Value="{ThemeResource AccentForegroundBrush}" />
-        <Setter Property="Height" Value="36" />
+        <Setter Property="Height" Value="38" />
         <Setter Property="Padding" Value="14,0,12,0" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="FontSize" Value="17" />
+        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="CornerRadius" Value="14,14,14,0" />
     </Style>
 
@@ -199,6 +201,19 @@
         <Setter Property="CharacterSpacing" Value="80" />
         <Setter Property="Foreground" Value="{ThemeResource AccentForegroundBrush}" />
         <Setter Property="Margin" Value="10,2,10,2" />
+    </Style>
+
+    <!-- Regels in het tokenblok: modelnaam links, aantal rechts, in het grijsrood. -->
+    <Style x:Key="TokenModelStijl" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextMutedBrush}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Margin" Value="0,0,12,0" />
+    </Style>
+    <Style x:Key="TokenWaardeStijl" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground" Value="{ThemeResource TextMutedBrush}" />
+        <Setter Property="HorizontalAlignment" Value="Right" />
     </Style>
 
     <!-- Tekst in een statuspil onderin. -->
