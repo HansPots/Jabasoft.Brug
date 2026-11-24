@@ -6,9 +6,12 @@ namespace Jabasoft.Brug.App.Paginas.Broker;
 
 /// <summary>
 /// Broker &gt; Tokens: het tokenverbruik zoals de broker het vastlegt.
-/// Bovenaan de kengetallen, daaronder per week (klik een week voor de losse
-/// aanroepen), per model en per onderdeel. Zelfde gegevens als het oude
-/// Tokens-scherm van Jabasoft.App, uit dezelfde /api/usage-endpoints.
+///
+/// Links de weken. Zonder gekozen week toont rechts het totaaloverzicht
+/// (per model over alle weken, per onderdeel over de laatste 30 dagen).
+/// Klik je een week aan, dan toont rechts het overzicht van die week en
+/// komen onderaan de losse aanroepen; klik je dezelfde week nog een keer,
+/// dan ga je terug naar het totaal.
 /// </summary>
 public sealed class Tokens : BrokerPagina
 {
@@ -16,14 +19,10 @@ public sealed class Tokens : BrokerPagina
     private const int MaxRegels = 250;
 
     private string? _gekozenWeek;
-    private readonly StackPanel _regels = new() { Spacing = 0 };
-    private Controls.Paneel? _regelPaneel;
 
     protected override async Task LaadAsync()
     {
         var weken = await BrokerApi.TokenWekenAsync();
-        var modellen = await BrokerApi.TokenModellenAsync();
-        var onderdelen = await BrokerApi.TokenOnderdelenAsync(DagenOnderdelen);
 
         Lijf.Children.Clear();
         if (!weken.Gelukt || weken.Waarde is null)
@@ -39,30 +38,66 @@ public sealed class Tokens : BrokerPagina
             return;
         }
 
-        // 1. Kengetallen
-        var dezeWeek = lijst[0];
+        var gekozen = lijst.FirstOrDefault(w => w.Week == _gekozenWeek);
+        if (gekozen is null)
+        {
+            _gekozenWeek = null;
+        }
+
+        // Gegevens voor rechts: van de gekozen week, of het totaal.
+        List<TokenModel> perModel;
+        List<TokenOnderdeel> perOnderdeel;
+        string? foutModel, foutOnderdeel, bereikModel, bereikOnderdeel;
+        List<TokenRegel>? weekRegels = null;
+
+        if (gekozen is not null)
+        {
+            var regels = await BrokerApi.TokenRegelsAsync(gekozen.Week);
+            weekRegels = regels.Waarde ?? [];
+            perModel = [.. weekRegels
+                .GroupBy(r => string.IsNullOrWhiteSpace(r.Model) ? "" : r.Model)
+                .Select(g => new TokenModel(g.Key, g.Sum(r => r.TotalTokens), g.Count()))];
+            perOnderdeel = [.. weekRegels
+                .GroupBy(r => (r.Application, Onderdeel: string.IsNullOrWhiteSpace(r.Onderdeel) ? "—" : r.Onderdeel))
+                .Select(g => new TokenOnderdeel(g.Key.Application, g.Key.Onderdeel, g.Sum(r => r.TotalTokens), g.Count()))];
+            foutModel = foutOnderdeel = regels.Fout;
+            bereikModel = bereikOnderdeel = $"week {WeekNummer(gekozen.Week)}";
+        }
+        else
+        {
+            var modellen = await BrokerApi.TokenModellenAsync();
+            var onderdelen = await BrokerApi.TokenOnderdelenAsync(DagenOnderdelen);
+            perModel = modellen.Waarde ?? [];
+            perOnderdeel = onderdelen.Waarde ?? [];
+            foutModel = modellen.Fout;
+            foutOnderdeel = onderdelen.Fout;
+            bereikModel = "alle weken";
+            bereikOnderdeel = $"laatste {DagenOnderdelen} dagen";
+        }
+
+        // 1. Kengetallen: het totaal, en de gekozen week (of deze week).
+        var week = gekozen ?? lijst[0];
         Lijf.Children.Add(Bouw.Band(
             ("Totaal", Bouw.Getal(lijst.Sum(w => w.TotalTokens))),
-            ($"Week {WeekNummer(dezeWeek.Week)}", Bouw.Getal(dezeWeek.TotalTokens)),
-            ("Aanroepen", Bouw.Getal(dezeWeek.Calls)),
-            ("Per aanroep", dezeWeek.Calls == 0 ? "—" : Bouw.Getal(dezeWeek.TotalTokens / dezeWeek.Calls))));
+            ($"Week {WeekNummer(week.Week)}", Bouw.Getal(week.TotalTokens)),
+            ("Aanroepen", Bouw.Getal(week.Calls)),
+            ("Per aanroep", week.Calls == 0 ? "—" : Bouw.Getal(week.TotalTokens / week.Calls))));
 
-        // 2. Per week links; per model en per onderdeel rechts
+        // 2. Weken links; per model en per onderdeel rechts
         var midden = Bouw.Kolommen(2);
         Bouw.Zet(midden, WekenPaneel(lijst), 0, 0);
 
         var rechts = new StackPanel { Spacing = 24 };
-        rechts.Children.Add(ModellenPaneel(modellen));
-        rechts.Children.Add(OnderdelenPaneel(onderdelen));
+        rechts.Children.Add(ModellenPaneel(perModel, foutModel, bereikModel));
+        rechts.Children.Add(OnderdelenPaneel(perOnderdeel, foutOnderdeel, bereikOnderdeel));
         Bouw.Zet(midden, rechts, 0, 1);
         Lijf.Children.Add(midden);
 
-        // 3. De losse aanroepen van de gekozen week
-        _regelPaneel = Bouw.Paneel("Aanroepen", _regels);
-        Lijf.Children.Add(_regelPaneel);
-
-        _gekozenWeek ??= dezeWeek.Week;
-        await ToonWeekAsync(lijst.FirstOrDefault(w => w.Week == _gekozenWeek) ?? dezeWeek);
+        // 3. De losse aanroepen, alleen als er een week gekozen is.
+        if (gekozen is not null && weekRegels is not null)
+        {
+            Lijf.Children.Add(RegelPaneel(gekozen, weekRegels));
+        }
     }
 
     private Controls.Paneel WekenPaneel(List<TokenWeek> weken)
@@ -86,25 +121,27 @@ public sealed class Tokens : BrokerPagina
                 BorderThickness = new Thickness(0),
                 Padding = new Thickness(0, 4, 0, 4),
             };
-            ToolTipService.SetToolTip(knop, "Toon de aanroepen van deze week");
+            ToolTipService.SetToolTip(knop, week.Week == _gekozenWeek
+                ? "Terug naar het totaaloverzicht"
+                : "Toon het overzicht van deze week");
             knop.Click += async (_, _) =>
             {
-                _gekozenWeek = week.Week;
+                // Nog een keer op dezelfde week = terug naar het totaal.
+                _gekozenWeek = _gekozenWeek == week.Week ? null : week.Week;
                 await VerversAsync();
             };
             lijst.Children.Add(knop);
         }
 
-        return Bouw.Paneel("Per week", lijst, $"{weken.Count} weken");
+        return Bouw.Paneel("Per week", lijst, _gekozenWeek is null ? $"{weken.Count} weken" : $"week {WeekNummer(_gekozenWeek)} gekozen");
     }
 
-    private static Controls.Paneel ModellenPaneel(Meting<List<TokenModel>> modellen)
+    private static Controls.Paneel ModellenPaneel(List<TokenModel> waarden, string? fout, string bereik)
     {
         var lijst = new StackPanel { Spacing = 10 };
-        var waarden = modellen.Waarde ?? [];
         if (waarden.Count == 0)
         {
-            lijst.Children.Add(Bouw.Melding(modellen.Fout ?? "Nog geen verbruik per model."));
+            lijst.Children.Add(Bouw.Melding(fout ?? "Geen verbruik per model."));
         }
 
         var grootste = Math.Max(1, waarden.Count == 0 ? 1 : waarden.Max(m => m.TotalTokens));
@@ -116,16 +153,15 @@ public sealed class Tokens : BrokerPagina
                 (double)model.TotalTokens / grootste));
         }
 
-        return Bouw.Paneel("Per model", lijst, "alle weken");
+        return Bouw.Paneel("Per model", lijst, bereik);
     }
 
-    private static Controls.Paneel OnderdelenPaneel(Meting<List<TokenOnderdeel>> onderdelen)
+    private static Controls.Paneel OnderdelenPaneel(List<TokenOnderdeel> waarden, string? fout, string bereik)
     {
         var lijst = new StackPanel { Spacing = 10 };
-        var waarden = onderdelen.Waarde ?? [];
         if (waarden.Count == 0)
         {
-            lijst.Children.Add(Bouw.Melding(onderdelen.Fout ?? "Nog geen verbruik per onderdeel."));
+            lijst.Children.Add(Bouw.Melding(fout ?? "Geen verbruik per onderdeel."));
         }
 
         var totaal = Math.Max(1, waarden.Sum(o => o.TotalTokens));
@@ -138,33 +174,22 @@ public sealed class Tokens : BrokerPagina
                 "HeaderSideGradientBrush"));
         }
 
-        return Bouw.Paneel("Per onderdeel", lijst, $"laatste {DagenOnderdelen} dagen");
+        return Bouw.Paneel("Per onderdeel", lijst, bereik);
     }
 
-    private async Task ToonWeekAsync(TokenWeek week)
+    private static Controls.Paneel RegelPaneel(TokenWeek week, List<TokenRegel> lijst)
     {
-        if (_regelPaneel is null)
+        var regels = new StackPanel();
+        if (lijst.Count == 0)
         {
-            return;
+            regels.Children.Add(Bouw.Melding("Geen regels gevonden voor deze week."));
+            return Bouw.Paneel($"Aanroepen · week {WeekNummer(week.Week)}", regels);
         }
 
-        _regelPaneel.Titel = $"AANROEPEN · WEEK {WeekNummer(week.Week)}";
-        _regels.Children.Clear();
-        _regels.Children.Add(Bouw.Melding("Ophalen…"));
-
-        var regels = await BrokerApi.TokenRegelsAsync(week.Week);
-        _regels.Children.Clear();
-        if (regels.Waarde is not { Count: > 0 } lijst)
-        {
-            _regels.Children.Add(Bouw.Melding(regels.Fout ?? "Geen regels gevonden voor deze week."));
-            return;
-        }
-
-        _regelPaneel.Rechts = lijst.Count > MaxRegels ? $"NIEUWSTE {MaxRegels} VAN {Bouw.Getal(lijst.Count)}" : $"{Bouw.Getal(lijst.Count)} AANROEPEN";
-        _regels.Children.Add(Rij(true, "Tijd", "App", "Onderdeel", "Model", "Prompt", "Antwoord", "Totaal"));
+        regels.Children.Add(Rij(true, "Tijd", "App", "Onderdeel", "Model", "Prompt", "Antwoord", "Totaal"));
         foreach (var regel in lijst.OrderByDescending(r => r.Timestamp).Take(MaxRegels))
         {
-            _regels.Children.Add(Rij(false,
+            regels.Children.Add(Rij(false,
                 regel.Timestamp.ToLocalTime().ToString("ddd d MMM HH:mm", Bouw.Nl),
                 regel.Application,
                 regel.Onderdeel ?? "—",
@@ -173,6 +198,9 @@ public sealed class Tokens : BrokerPagina
                 Bouw.Getal(regel.CompletionTokens),
                 Bouw.Getal(regel.TotalTokens)));
         }
+
+        var rechts = lijst.Count > MaxRegels ? $"nieuwste {MaxRegels} van {Bouw.Getal(lijst.Count)}" : $"{Bouw.Getal(lijst.Count)} aanroepen";
+        return Bouw.Paneel($"Aanroepen · week {WeekNummer(week.Week)}", regels, rechts);
     }
 
     private static readonly double[] Breedtes = [1.4, 1.2, 1.4, 2.4, 1, 1, 1];
