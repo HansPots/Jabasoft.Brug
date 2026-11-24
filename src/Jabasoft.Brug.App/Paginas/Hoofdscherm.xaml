@@ -4,13 +4,13 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Het hoofdscherm: de brug. Stretch Uniform houdt de verhouding vast
-        (2400x900); het beeld schaalt mee met het venster maar wordt nooit
-        uitgerekt of afgesneden.
+        Het hoofdscherm: de brug, vullend en zonder randen. UniformToFill
+        houdt de verhouding vast (2400x876, bijna gelijk aan het inhoudsvlak)
+        en snijdt hooguit een randje weg in plaats van uit te rekken.
     -->
-    <Grid Padding="24">
+    <Grid>
         <Image x:Name="Brug"
-               Stretch="Uniform"
+               Stretch="UniformToFill"
                HorizontalAlignment="Center"
                VerticalAlignment="Center" />
     </Grid>

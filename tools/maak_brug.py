@@ -36,7 +36,9 @@ def poly(quad, pts, fill, extra=""):
     p = " ".join(f"{x:.1f},{y:.1f}" for x, y in (bilin(quad, u, v) for u, v in pts))
     a(f'<polygon points="{p}" fill="{fill}" {extra}/>')
 
-a(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">')
+# Zichtbaar deel: tot net onder de stoelen (onderste LCARS-balken vallen weg).
+ZICHT_H = 876
+a(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {ZICHT_H}" width="{W}" height="{ZICHT_H}">')
 a('''<defs>
 <linearGradient id="lucht" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#020210"/><stop offset="1" stop-color="#0B0A26"/></linearGradient>
 <radialGradient id="nevel1" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#B63C50" stop-opacity="0.55"/><stop offset="1" stop-color="#B63C50" stop-opacity="0"/></radialGradient>
@@ -185,11 +187,6 @@ stoel(960, 860, 0.85)
 stoel(1440, 860, 0.85)
 stoel(1200, 880, 1.15)
 
-# LCARS-rand onderaan, zoals de balken van de app
-a(f'<rect x="0" y="884" width="560" height="16" fill="{ORANJE}"/>')
-a(f'<rect x="572" y="884" width="180" height="16" fill="{LILA}"/>')
-a(f'<rect x="1648" y="884" width="180" height="16" fill="{ROZE}"/>')
-a(f'<rect x="1840" y="884" width="560" height="16" fill="{ORANJE}"/>')
 a('</svg>')
 
 with open(sys.argv[1], "w", encoding="utf-8") as f:
