@@ -11,7 +11,7 @@ namespace Jabasoft.Brug.App.Diensten;
 /// live stroom voor in de plaats. Draait de broker niet, dan staat er een
 /// regel van, en een regel als hij weer terug is - niet elke twee seconden.
 /// </summary>
-public sealed class BrokerLoglezer(Activiteitenlog doel, string basisUrl = "http://localhost:5310") : IDisposable
+public sealed class BrokerLoglezer(Activiteitenlog doel, Brokerbewaking? bewaking = null, string basisUrl = "http://localhost:5310") : IDisposable
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -64,6 +64,7 @@ public sealed class BrokerLoglezer(Activiteitenlog doel, string basisUrl = "http
 
     private void MeldBereikbaar(bool nu)
     {
+        bewaking?.Meld(nu);
         if (_bereikbaar == nu)
         {
             return;

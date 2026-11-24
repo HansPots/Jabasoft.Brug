@@ -4,12 +4,22 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        De actiebalk rechts (48 breed): knoppen die horen bij het scherm dat
-        open staat. In fase 1 alleen de verversknop, nog zonder werking.
+        De actiebalk rechts (48 breed): knoppen die horen bij wat er open
+        staat.
+        - Broker starten: alleen aan te klikken als de broker niet
+          bereikbaar is. Start via de aanmeldtaak, net als de tray.
+        - Verversen: volgt in fase 2.
     -->
     <Grid>
         <Border Background="{ThemeResource BorderBrush}" CornerRadius="4,18,18,4" Opacity="0.25" />
         <StackPanel Margin="0,12,0,12" Spacing="8">
+            <Button x:Name="StartKnop"
+                    Style="{StaticResource ActieKnopStijl}"
+                    IsEnabled="False"
+                    Click="StartKnop_Click"
+                    ToolTipService.ToolTip="Broker draait">
+                <FontIcon FontFamily="{StaticResource IconFontFamily}" Glyph="&#xE768;" FontSize="16" />
+            </Button>
             <Button x:Name="VerversKnop"
                     Style="{StaticResource ActieKnopStijl}"
                     IsEnabled="False"

@@ -18,6 +18,9 @@ public partial class App : Application
     /// <summary>Wat de broker doet, opgehaald via /logs (laatste infoblok in de header).</summary>
     public static Activiteitenlog BrokerLog { get; } = new();
 
+    /// <summary>Of de broker bereikbaar is, en hem starten. De Brug stopt hem nooit.</summary>
+    public static Brokerbewaking Broker { get; } = new(AppLog);
+
     public App()
     {
         InitializeComponent();
@@ -37,7 +40,7 @@ public partial class App : Application
     {
         AppLog.Schrijf("brug", $"Jabasoft.Brug {Versie} gestart");
 
-        _brokerLezer = new BrokerLoglezer(BrokerLog);
+        _brokerLezer = new BrokerLoglezer(BrokerLog, Broker);
         _brokerLezer.Start();
 
         _venster = new MainWindow();

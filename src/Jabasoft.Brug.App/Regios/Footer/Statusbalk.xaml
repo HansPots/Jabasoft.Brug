@@ -19,9 +19,16 @@
         </Grid.ColumnDefinitions>
 
         <Border Grid.Column="0" Background="{ThemeResource AccentBrush}" CornerRadius="12,12,12,12">
+            <!-- Het bolletje toont de broker: groen = bereikbaar, oranje = bezig
+                 met starten, rood = niet bereikbaar. Zwarte rand, zodat groen
+                 en oranje niet wegvallen tegen het oranje van de pil. -->
             <StackPanel Orientation="Horizontal">
-                <Ellipse Width="10" Height="10" Margin="12,0,0,0" Fill="{ThemeResource AccentForegroundBrush}" VerticalAlignment="Center" />
-                <TextBlock Style="{StaticResource PilTekstStijl}" Margin="8,0,12,0" Text="SYSTEM HEALTH  —" />
+                <Ellipse x:Name="HealthBolletje"
+                         Width="12" Height="12" Margin="12,0,0,0"
+                         Fill="{ThemeResource AccentForegroundBrush}"
+                         Stroke="{ThemeResource AccentForegroundBrush}" StrokeThickness="2"
+                         VerticalAlignment="Center" />
+                <TextBlock x:Name="HealthTekst" Style="{StaticResource PilTekstStijl}" Margin="8,0,12,0" Text="SYSTEM HEALTH  —" />
             </StackPanel>
         </Border>
         <Border Grid.Column="1" Background="{ThemeResource BorderBrush}" CornerRadius="12,12,12,12">
