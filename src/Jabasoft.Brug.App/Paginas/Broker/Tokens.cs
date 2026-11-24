@@ -7,6 +7,9 @@ namespace Jabasoft.Brug.App.Paginas.Broker;
 /// <summary>
 /// Broker &gt; Tokens: het tokenverbruik zoals de broker het vastlegt.
 ///
+/// Bovenaan de grafiek: tokens per dag per model, over vier weken of over
+/// de dagen van de gekozen week.
+///
 /// Links de weken. Zonder gekozen week toont rechts het totaaloverzicht
 /// (per model over alle weken, per onderdeel over de laatste 30 dagen).
 /// Klik je een week aan, dan toont rechts het overzicht van die week en
@@ -18,10 +21,46 @@ public sealed class Tokens : BrokerPagina
     private const int DagenOnderdelen = 30;
     private const int MaxRegels = 250;
 
+    /// <summary>Hoeveel dagen de grafiek zonder gekozen week laat zien (zoals het oude scherm: vier weken).</summary>
+    private const int GrafiekDagen = 28;
+
+    /// <summary>
+    /// Losse aanroepen per afgelopen week: die veranderen niet meer, dus één
+    /// keer ophalen is genoeg. De lopende week wordt altijd opnieuw gevraagd.
+    /// </summary>
+    private readonly Dictionary<string, List<TokenRegel>> _weekCache = [];
+
     private string? _gekozenWeek;
+
+    private async Task<List<TokenRegel>> RegelsAsync(TokenWeek week, TokenWeek lopendeWeek)
+    {
+        if (week.Week != lopendeWeek.Week && _weekCache.TryGetValue(week.Week, out var bewaard))
+        {
+            return bewaard;
+        }
+
+        var regels = await BrokerApi.TokenRegelsAsync(week.Week);
+        if (regels.Waarde is not { } lijst)
+        {
+            return [];
+        }
+
+        if (week.Week != lopendeWeek.Week)
+        {
+            _weekCache[week.Week] = lijst;
+        }
+
+        return lijst;
+    }
 
     protected override async Task LaadAsync()
     {
+        // Bij de eerste keer meteen iets laten zien in plaats van een leeg scherm.
+        if (Lijf.Children.Count == 0)
+        {
+            Lijf.Children.Add(Bouw.Meldingpaneel("Tokens", "Ophalen…"));
+        }
+
         var weken = await BrokerApi.TokenWekenAsync();
 
         Lijf.Children.Clear();
@@ -44,29 +83,43 @@ public sealed class Tokens : BrokerPagina
             _gekozenWeek = null;
         }
 
-        // Gegevens voor rechts: van de gekozen week, of het totaal.
+        // Gegevens voor de grafiek en rechts: van de gekozen week, of het totaal.
+        // Alles wat los van elkaar kan, wordt tegelijk opgehaald.
         List<TokenModel> perModel;
         List<TokenOnderdeel> perOnderdeel;
         string? foutModel, foutOnderdeel, bereikModel, bereikOnderdeel;
         List<TokenRegel>? weekRegels = null;
+        List<TokenRegel> grafiekRegels;
+        DateTime grafiekVan, grafiekTot;
 
         if (gekozen is not null)
         {
-            var regels = await BrokerApi.TokenRegelsAsync(gekozen.Week);
-            weekRegels = regels.Waarde ?? [];
+            weekRegels = await RegelsAsync(gekozen, lijst[0]);
+            grafiekRegels = weekRegels;
+            grafiekVan = gekozen.Start.Date;
+            grafiekTot = gekozen.End.Date;
             perModel = [.. weekRegels
                 .GroupBy(r => string.IsNullOrWhiteSpace(r.Model) ? "" : r.Model)
                 .Select(g => new TokenModel(g.Key, g.Sum(r => r.TotalTokens), g.Count()))];
             perOnderdeel = [.. weekRegels
                 .GroupBy(r => (r.Application, Onderdeel: string.IsNullOrWhiteSpace(r.Onderdeel) ? "—" : r.Onderdeel))
                 .Select(g => new TokenOnderdeel(g.Key.Application, g.Key.Onderdeel, g.Sum(r => r.TotalTokens), g.Count()))];
-            foutModel = foutOnderdeel = regels.Fout;
+            foutModel = foutOnderdeel = null;
             bereikModel = bereikOnderdeel = $"week {WeekNummer(gekozen.Week)}";
         }
         else
         {
-            var modellen = await BrokerApi.TokenModellenAsync();
-            var onderdelen = await BrokerApi.TokenOnderdelenAsync(DagenOnderdelen);
+            grafiekTot = DateTime.Today;
+            grafiekVan = grafiekTot.AddDays(1 - GrafiekDagen);
+            var van = grafiekVan;
+            var modellenTaak = BrokerApi.TokenModellenAsync();
+            var onderdelenTaak = BrokerApi.TokenOnderdelenAsync(DagenOnderdelen);
+            var wekenTaak = Task.WhenAll(lijst.Where(w => w.End.Date >= van).Select(w => RegelsAsync(w, lijst[0])));
+            await Task.WhenAll(modellenTaak, onderdelenTaak, wekenTaak);
+
+            var modellen = modellenTaak.Result;
+            var onderdelen = onderdelenTaak.Result;
+            grafiekRegels = [.. wekenTaak.Result.SelectMany(r => r)];
             perModel = modellen.Waarde ?? [];
             perOnderdeel = onderdelen.Waarde ?? [];
             foutModel = modellen.Fout;
@@ -75,13 +128,22 @@ public sealed class Tokens : BrokerPagina
             bereikOnderdeel = $"laatste {DagenOnderdelen} dagen";
         }
 
-        // 1. Kengetallen: het totaal, en de gekozen week (of deze week).
-        var week = gekozen ?? lijst[0];
-        Lijf.Children.Add(Bouw.Band(
-            ("Totaal", Bouw.Getal(lijst.Sum(w => w.TotalTokens))),
-            ($"Week {WeekNummer(week.Week)}", Bouw.Getal(week.TotalTokens)),
-            ("Aanroepen", Bouw.Getal(week.Calls)),
-            ("Per aanroep", week.Calls == 0 ? "—" : Bouw.Getal(week.TotalTokens / week.Calls))));
+        // 1. De grafiek: tokens per dag per model - laatste vier weken, of de dagen van de gekozen week.
+        var perModelPerDag = grafiekRegels
+            .Where(r => r.Timestamp.ToLocalTime().Date >= grafiekVan && r.Timestamp.ToLocalTime().Date <= grafiekTot)
+            .GroupBy(r => string.IsNullOrWhiteSpace(r.Model) ? "" : r.Model)
+            .ToDictionary(
+                g => g.Key,
+                g => g.GroupBy(r => r.Timestamp.ToLocalTime().Date).ToDictionary(d => d.Key, d => d.Sum(r => r.TotalTokens)));
+        // Elke keer een nieuwe grafiek: een element kan maar in één paneel tegelijk staan.
+        var grafiek = new Controls.Tokengrafiek();
+        grafiek.Toon(perModelPerDag, grafiekVan, grafiekTot);
+
+        var grafiekTitel = gekozen is null ? "Verloop per model" : $"Verloop per dag · week {WeekNummer(gekozen.Week)}";
+        var grafiekRechts = gekozen is null
+            ? string.Create(Bouw.Nl, $"{grafiekVan:d MMM} – {grafiekTot:d MMM} · totaal {Bouw.Getal(lijst.Sum(w => w.TotalTokens))}")
+            : $"{Bouw.Getal(gekozen.TotalTokens)} tokens · {Bouw.Getal(gekozen.Calls)} aanroepen";
+        Lijf.Children.Add(Bouw.Paneel(grafiekTitel, grafiek, grafiekRechts));
 
         // 2. Weken links; per model en per onderdeel rechts
         var midden = Bouw.Kolommen(2);

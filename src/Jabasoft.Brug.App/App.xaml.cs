@@ -52,6 +52,10 @@ public partial class App : Application
         // schermen werken ook zonder, met de ingebouwde modelbeschrijvingen.
         _ = Data.BrugDatabase.VoorbereidenAsync();
 
+        // Voorverwarmen: de eerste aanroep via BrokerApi (verbinding, JSON)
+        // kost het meeste tijd; doe die nu, dan opent Tokens daarna vlot.
+        _ = Task.Run(Diensten.BrokerApi.TokenWekenAsync);
+
         _venster = new MainWindow();
         _venster.Closed += (_, _) =>
         {

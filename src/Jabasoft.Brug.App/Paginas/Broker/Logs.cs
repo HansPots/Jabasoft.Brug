@@ -18,11 +18,11 @@ public sealed class Logs : BrokerPagina
     private const int MaxZichtbaar = 1000;
 
     private readonly TextBox _zoek = new() { PlaceholderText = "Zoeken in de log…", Width = 360 };
-    private readonly ComboBox _bron = new() { ItemsSource = new[] { "Broker", "Brug" }, SelectedIndex = 0, Width = 160 };
+    private readonly ComboBox _bron = new() { ItemsSource = new[] { "Alles", "Broker", "Brug" }, SelectedIndex = 0, Width = 160 };
     private readonly ToggleSwitch _fouten = new() { OffContent = "Alles", OnContent = "Alleen fouten" };
     private readonly TextBlock _teller = Bouw.Tekst("", "LabelStijl");
     private readonly StackPanel _regels = new() { Spacing = 0 };
-    private Activiteitenlog? _gevolgd;
+    private Activiteitenlog[] _gevolgd = [];
 
     public Logs()
     {
@@ -33,7 +33,17 @@ public sealed class Logs : BrokerPagina
         Loaded += (_, _) => Volg();
     }
 
-    private Activiteitenlog Log => _bron.SelectedIndex == 1 ? App.AppLog : App.BrokerLog;
+    /// <summary>De gekozen log(s): Alles = broker en Brug samen.</summary>
+    private Activiteitenlog[] Logboeken => _bron.SelectedIndex switch
+    {
+        1 => [App.BrokerLog],
+        2 => [App.AppLog],
+        _ => [App.BrokerLog, App.AppLog],
+    };
+
+    /// <summary>Alle regels van de gekozen log(s), op tijd, oudste eerst.</summary>
+    private List<Activiteit> AlleRegels() =>
+        [.. Logboeken.SelectMany(l => l.Alles()).OrderBy(r => r.Tijd)];
 
     protected override Task LaadAsync()
     {
@@ -56,18 +66,23 @@ public sealed class Logs : BrokerPagina
     private void Volg()
     {
         Ontkoppel();
-        _gevolgd = Log;
-        _gevolgd.Toegevoegd += Nieuw;
+        _gevolgd = Logboeken;
+        foreach (var log in _gevolgd)
+        {
+            log.Toegevoegd += Nieuw;
+        }
+
         Toon();
     }
 
     private void Ontkoppel()
     {
-        if (_gevolgd is not null)
+        foreach (var log in _gevolgd)
         {
-            _gevolgd.Toegevoegd -= Nieuw;
-            _gevolgd = null;
+            log.Toegevoegd -= Nieuw;
         }
+
+        _gevolgd = [];
     }
 
     private void Nieuw(object? sender, Activiteit regel) => DispatcherQueue.TryEnqueue(() =>
@@ -92,7 +107,8 @@ public sealed class Logs : BrokerPagina
         }
 
         _regels.Children.Clear();
-        var passend = Log.Alles().Where(Past).Reverse().Take(MaxZichtbaar).ToList();
+        var alles = AlleRegels();
+        var passend = alles.Where(Past).Reverse().Take(MaxZichtbaar).ToList();
         foreach (var regel in passend)
         {
             _regels.Children.Add(Rij(regel));
@@ -100,14 +116,14 @@ public sealed class Logs : BrokerPagina
 
         if (passend.Count == 0)
         {
-            _regels.Children.Add(Bouw.Melding(Log.Alles().Count == 0 ? "Nog niets gelogd sinds de Brug openging." : "Geen regels die passen bij het filter."));
+            _regels.Children.Add(Bouw.Melding(alles.Count == 0 ? "Nog niets gelogd sinds de Brug openging." : "Geen regels die passen bij het filter."));
         }
 
         ZetTeller();
     }
 
     private void ZetTeller() =>
-        _teller.Text = $"{Bouw.Getal(_regels.Children.OfType<Grid>().Count())} van {Bouw.Getal(Log.Alles().Count)} regels";
+        _teller.Text = $"{Bouw.Getal(_regels.Children.OfType<Grid>().Count())} van {Bouw.Getal(Logboeken.Sum(l => l.Alles().Count))} regels";
 
     private bool Past(Activiteit regel)
     {
@@ -141,6 +157,7 @@ public sealed class Logs : BrokerPagina
         var tijd = Bouw.Tekst(regel.TijdTekst, "LabelStijl");
         var bron = Bouw.Tekst(regel.Bron, "LabelStijl");
         var tekst = Bouw.Tekst(regel.Bericht, omloop: true);
+        tekst.IsTextSelectionEnabled = true; // selecteren en kopiëren (Ctrl+C)
         if (IsFout(regel.Bericht))
         {
             // Themakleur (roze), geen los rood: statuskleur hoort alleen in bolletjes.
