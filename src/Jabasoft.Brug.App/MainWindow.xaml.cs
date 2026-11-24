@@ -41,6 +41,7 @@ public sealed partial class MainWindow : Window
         }
 
         Schil.MainContent = scherm;
+        Acties.ZetScherm(sleutel, scherm);
         App.AppLog.Schrijf("brug", $"Scherm geopend: {Pad(sleutel)}");
     }
 
