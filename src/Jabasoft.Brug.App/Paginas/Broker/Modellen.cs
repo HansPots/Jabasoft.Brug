@@ -59,20 +59,19 @@ public sealed class Modellen : BrokerPagina
 
         if (!server.Gelukt)
         {
-            Lijf.Children.Add(Bouw.Melding($"De modellijst van de AI-server is niet op te halen ({server.Fout}). Hieronder de beschreven modellen."));
+            Lijf.Children.Add(Bouw.Meldingpaneel("AI-server", $"De modellijst is niet op te halen ({server.Fout}). Hieronder de beschreven modellen."));
         }
 
         if (!BrugDatabase.Beschikbaar)
         {
-            Lijf.Children.Add(Bouw.Melding($"Database {BrugDatabase.Naam} niet bereikbaar ({BrugDatabase.Fout}): de ingebouwde beschrijvingen worden getoond en aanpassen kan nu niet."));
+            Lijf.Children.Add(Bouw.Meldingpaneel("Database", $"{BrugDatabase.Naam} niet bereikbaar ({BrugDatabase.Fout}): de ingebouwde beschrijvingen worden getoond en aanpassen kan nu niet."));
         }
 
-        var kengetallen = Bouw.Kolommen(4);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Op de server", server.Gelukt ? opServer.Count.ToString(Bouw.Nl) : "—", "AccentBrush"), 0, 0);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Met een taak", taken.Count.ToString(Bouw.Nl), "HeaderSideGradientBrush"), 0, 1);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Verborgen", verborgen.Count.ToString(Bouw.Nl), "TextMutedBrush"), 0, 2);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Beschreven", namen.Count(info.ContainsKey).ToString(Bouw.Nl), "BorderBrush"), 0, 3);
-        Lijf.Children.Add(kengetallen);
+        Lijf.Children.Insert(0, Bouw.Band(
+            ("Op de server", server.Gelukt ? opServer.Count.ToString(Bouw.Nl) : "—"),
+            ("Met een taak", taken.Count.ToString(Bouw.Nl)),
+            ("Verborgen", verborgen.Count.ToString(Bouw.Nl)),
+            ("Beschreven", namen.Count(info.ContainsKey).ToString(Bouw.Nl))));
 
         var groepen = new (string Kop, Func<string, bool> Hoort)[]
         {
@@ -90,7 +89,7 @@ public sealed class Modellen : BrokerPagina
                 continue;
             }
 
-            Lijf.Children.Add(Bouw.Kop($"{kop.ToUpper(Bouw.Nl)} · {leden.Count}"));
+            Lijf.Children.Add(Bouw.Band((kop, leden.Count.ToString(Bouw.Nl))));
             var raster = Bouw.Kolommen(2);
             for (var i = 0; i < leden.Count; i++)
             {

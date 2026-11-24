@@ -28,25 +28,24 @@ public sealed class Tokens : BrokerPagina
         Lijf.Children.Clear();
         if (!weken.Gelukt || weken.Waarde is null)
         {
-            Lijf.Children.Add(Bouw.Melding($"Geen tokengegevens: {weken.Fout}. Start de broker en ververs dit scherm."));
+            Lijf.Children.Add(Bouw.Meldingpaneel("Geen tokengegevens", $"{weken.Fout}. Start de broker en ververs dit scherm."));
             return;
         }
 
         var lijst = weken.Waarde;
         if (lijst.Count == 0)
         {
-            Lijf.Children.Add(Bouw.Melding("Nog geen AI-aanroepen vastgelegd. Zodra een applicatie de broker gebruikt, verschijnt hier een week."));
+            Lijf.Children.Add(Bouw.Meldingpaneel("Tokens", "Nog geen AI-aanroepen vastgelegd. Zodra een applicatie de broker gebruikt, verschijnt hier een week."));
             return;
         }
 
         // 1. Kengetallen
         var dezeWeek = lijst[0];
-        var kengetallen = Bouw.Kolommen(4);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Totaal", Bouw.Getal(lijst.Sum(w => w.TotalTokens)), "AccentBrush"), 0, 0);
-        Bouw.Zet(kengetallen, Bouw.Kengetal($"Week {WeekNummer(dezeWeek.Week)}", Bouw.Getal(dezeWeek.TotalTokens), "HeaderSideGradientBrush"), 0, 1);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Aanroepen deze week", Bouw.Getal(dezeWeek.Calls), "BorderBrush"), 0, 2);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Gemiddeld per aanroep", dezeWeek.Calls == 0 ? "—" : Bouw.Getal(dezeWeek.TotalTokens / dezeWeek.Calls), "TextMutedBrush"), 0, 3);
-        Lijf.Children.Add(kengetallen);
+        Lijf.Children.Add(Bouw.Band(
+            ("Totaal", Bouw.Getal(lijst.Sum(w => w.TotalTokens))),
+            ($"Week {WeekNummer(dezeWeek.Week)}", Bouw.Getal(dezeWeek.TotalTokens)),
+            ("Aanroepen", Bouw.Getal(dezeWeek.Calls)),
+            ("Per aanroep", dezeWeek.Calls == 0 ? "—" : Bouw.Getal(dezeWeek.TotalTokens / dezeWeek.Calls))));
 
         // 2. Per week links; per model en per onderdeel rechts
         var midden = Bouw.Kolommen(2);

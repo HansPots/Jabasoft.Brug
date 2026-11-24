@@ -161,6 +161,59 @@ public static class Bouw
 
     public static Controls.Waardeveld Veld(string label, string waarde) => new() { Label = label.ToUpper(Nl), Waarde = waarde };
 
+    /// <summary>
+    /// Kengetallen in één lila band (zelfde vorm als de totaalband van Health):
+    /// per vak een label en de waarde, zwart op lila, gelijk verdeeld.
+    /// </summary>
+    public static Border Band(params (string Label, string Waarde)[] vakken)
+    {
+        var grid = new Grid { Margin = new Thickness(20, 0, 20, 0), ColumnSpacing = 24 };
+        for (var i = 0; i < vakken.Length; i++)
+        {
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var vak = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, VerticalAlignment = VerticalAlignment.Center };
+            vak.Children.Add(new TextBlock
+            {
+                Text = vakken[i].Label.ToUpper(Nl),
+                FontSize = Maat("FontSizeSmall"),
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                CharacterSpacing = 100,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Kleur("AccentForegroundBrush"),
+            });
+            vak.Children.Add(new TextBlock
+            {
+                Text = vakken[i].Waarde,
+                FontSize = Maat("FontSizeTitle"),
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Kleur("AccentForegroundBrush"),
+            });
+            Grid.SetColumn(vak, i);
+            grid.Children.Add(vak);
+        }
+
+        return new Border
+        {
+            Background = Kleur("BorderBrush"),
+            CornerRadius = new CornerRadius(22, 22, 22, 0),
+            Height = 44,
+            Child = grid,
+        };
+    }
+
+    /// <summary>Een Paneel met alleen een melding erin, voor "niets te tonen" of een fout bovenaan een scherm.</summary>
+    public static Controls.Paneel Meldingpaneel(string titel, string tekst) => Paneel(titel, Melding(tekst));
+
+    /// <summary>Een dunne scheidingslijn tussen regels binnen een paneel.</summary>
+    public static Border Scheiding() => new()
+    {
+        Height = 2,
+        Background = Kleur("BorderBrush"),
+        Opacity = 0.35,
+        Margin = new Thickness(0, 6, 0, 6),
+    };
+
     public static Controls.Kengetal Kengetal(string label, string waarde, string kleur) => new()
     {
         Label = label.ToUpper(Nl),

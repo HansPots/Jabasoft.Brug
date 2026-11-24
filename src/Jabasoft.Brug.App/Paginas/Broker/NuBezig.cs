@@ -24,7 +24,8 @@ public sealed class NuBezig : BrokerPagina
         Lijf.Children.Clear();
         if (wachtrij.Waarde is not { } items)
         {
-            Lijf.Children.Add(Bouw.Melding($"Geen gegevens: {wachtrij.Fout}. Start de broker; dit scherm werkt zichzelf bij zodra hij er is."));
+            Lijf.Children.Add(Bouw.Band(("Broker", "offline")));
+            Lijf.Children.Add(Bouw.Meldingpaneel("Geen gegevens", $"{wachtrij.Fout}. Start de broker; dit scherm werkt zichzelf bij zodra hij er is."));
             Lijf.Children.Add(GpuPaneel());
             return;
         }
@@ -33,53 +34,30 @@ public sealed class NuBezig : BrokerPagina
         var wachtend = items.Where(i => i.Status == "Wachtend").OrderBy(i => i.Plek).ToList();
         var klaar = items.Where(i => i.Status is "Klaar" or "Mislukt" or "Geannuleerd").ToList();
 
-        var kengetallen = Bouw.Kolommen(4);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Lopend", lopend.Count.ToString(Bouw.Nl), "AccentBrush"), 0, 0);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("In de wachtrij", wachtend.Count.ToString(Bouw.Nl), "TextMutedBrush"), 0, 1);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Net klaar", klaar.Count.ToString(Bouw.Nl), "HeaderSideGradientBrush"), 0, 2);
-        Bouw.Zet(kengetallen, Bouw.Kengetal("Snelheid", Snelheid(lopend.FirstOrDefault()) ?? "—", "BorderBrush"), 0, 3);
-        Lijf.Children.Add(kengetallen);
+        Lijf.Children.Add(Bouw.Band(
+            ("Lopend", lopend.Count.ToString(Bouw.Nl)),
+            ("In de wachtrij", wachtend.Count.ToString(Bouw.Nl)),
+            ("Net klaar", klaar.Count.ToString(Bouw.Nl)),
+            ("Snelheid", Snelheid(lopend.FirstOrDefault()) ?? "—")));
 
         var raster = new Grid { ColumnSpacing = 24 };
         raster.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2, GridUnitType.Star) });
         raster.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var links = new StackPanel { Spacing = 16 };
-        links.Children.Add(Bouw.Kop("LOPEND"));
-        if (lopend.Count == 0)
-        {
-            links.Children.Add(Bouw.Melding("Er loopt nu geen vraag. Zodra een app, Goose, Hermes of Claude de broker iets vraagt, staat het hier."));
-        }
+        // Alles in panelen: geen losse koppen en teksten op de achtergrond.
+        var links = new StackPanel { Spacing = 24 };
+        links.Children.Add(Bouw.Paneel("Lopend",
+            Lijst(lopend.Select(VraagBlok), "Er loopt nu geen vraag. Zodra een app, Goose, Hermes of Claude de broker iets vraagt, staat het hier."),
+            $"{lopend.Count}"));
+        links.Children.Add(Bouw.Paneel("Wachtrij",
+            Lijst(wachtend.Select(VraagBlok), "Niemand wacht."),
+            $"{wachtend.Count}"));
 
-        foreach (var item in lopend)
-        {
-            links.Children.Add(VraagPaneel(item));
-        }
-
-        links.Children.Add(Bouw.Kop("WACHTRIJ"));
-        if (wachtend.Count == 0)
-        {
-            links.Children.Add(Bouw.Melding("Niemand wacht."));
-        }
-
-        foreach (var item in wachtend)
-        {
-            links.Children.Add(VraagPaneel(item));
-        }
-
-        var rechts = new StackPanel { Spacing = 16 };
-        rechts.Children.Add(Bouw.Kop("GPU"));
+        var rechts = new StackPanel { Spacing = 24 };
         rechts.Children.Add(GpuPaneel());
-        rechts.Children.Add(Bouw.Kop("NET KLAAR"));
-        if (klaar.Count == 0)
-        {
-            rechts.Children.Add(Bouw.Melding("Nog niets afgerond in de laatste 30 seconden."));
-        }
-
-        foreach (var item in klaar)
-        {
-            rechts.Children.Add(KlaarPaneel(item));
-        }
+        rechts.Children.Add(Bouw.Paneel("Net klaar",
+            Lijst(klaar.Select(KlaarRegel), "Nog niets afgerond in de laatste 30 seconden."),
+            "laatste 30 s"));
 
         Grid.SetColumn(rechts, 1);
         raster.Children.Add(links);
@@ -87,7 +65,29 @@ public sealed class NuBezig : BrokerPagina
         Lijf.Children.Add(raster);
     }
 
-    private static Controls.Paneel VraagPaneel(WachtrijItem item)
+    /// <summary>Regels onder elkaar met een dunne lijn ertussen; leeg = de melding.</summary>
+    private static StackPanel Lijst(IEnumerable<FrameworkElement> regels, string leeg)
+    {
+        var lijst = new StackPanel();
+        foreach (var regel in regels)
+        {
+            if (lijst.Children.Count > 0)
+            {
+                lijst.Children.Add(Bouw.Scheiding());
+            }
+
+            lijst.Children.Add(regel);
+        }
+
+        if (lijst.Children.Count == 0)
+        {
+            lijst.Children.Add(Bouw.Melding(leeg));
+        }
+
+        return lijst;
+    }
+
+    private static FrameworkElement VraagBlok(WachtrijItem item)
     {
         var nu = DateTimeOffset.Now;
         var inhoud = new Grid { ColumnSpacing = 24, RowSpacing = 14 };
@@ -95,6 +95,7 @@ public sealed class NuBezig : BrokerPagina
         inhoud.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var kop = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
+        kop.Children.Add(Bouw.Pil($"#{item.Id}", "BorderBrush"));
         kop.Children.Add(Bouw.Pil(item.Applicatie, "AccentBrushLight"));
         if (!string.IsNullOrWhiteSpace(item.Onderdeel))
         {
@@ -127,13 +128,14 @@ public sealed class NuBezig : BrokerPagina
         Bouw.Zet(velden, Bouw.Veld("Tokens uit", Bouw.Getal(item.Tokens)), 0, 3);
         Bouw.Zet(inhoud, velden, 2, 0, 2);
 
-        var rechts = item.Status == "Wachtend"
+        var stand = item.Status == "Wachtend"
             ? $"plek {item.Plek} · {Bouw.Duur(nu - item.Aangemeld)}"
             : $"{FaseTekst(item)} · {Bouw.Duur(nu - (item.Gestart ?? item.Aangemeld))}";
-        return Bouw.Paneel($"Vraag #{item.Id}", inhoud, rechts);
+        kop.Children.Add(Bouw.Tekst(stand, "LabelStijl"));
+        return inhoud;
     }
 
-    private static Controls.Paneel KlaarPaneel(WachtrijItem item)
+    private static FrameworkElement KlaarRegel(WachtrijItem item)
     {
         var (kleur, tekst) = item.Status switch
         {
@@ -147,8 +149,16 @@ public sealed class NuBezig : BrokerPagina
         regel.Children.Add(Bouw.Tekst(item.Fout is { Length: > 0 } fout && item.Status != "Klaar" ? $"{tekst}: {fout}" : tekst, "LabelStijl"));
 
         var duur = item.Afgerond is { } eind && item.Gestart is { } start ? Bouw.Duur(eind - start) : "";
-        var inhoud = new StackPanel { Spacing = 6, Children = { Bouw.Tekst($"{item.Model} · {item.Soort}"), regel } };
-        return Bouw.Paneel($"#{item.Id} · {item.Applicatie}", inhoud, $"{Bouw.Getal(item.Tokens)} tok · {duur}");
+        return new StackPanel
+        {
+            Spacing = 4,
+            Children =
+            {
+                Bouw.Tekst($"#{item.Id} · {item.Applicatie} · {item.Model}"),
+                Bouw.Tekst($"{Bouw.Getal(item.Tokens)} tokens · {duur}", "LabelStijl"),
+                regel,
+            },
+        };
     }
 
     private static Controls.Paneel GpuPaneel()

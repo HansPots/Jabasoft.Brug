@@ -39,7 +39,7 @@ public sealed class Instellingen : BrokerPagina
         Lijf.Children.Clear();
         if (instellingen.Waarde is null)
         {
-            Lijf.Children.Add(Bouw.Melding($"Instellingen niet op te halen: {instellingen.Fout}. Start de broker en ververs dit scherm."));
+            Lijf.Children.Add(Bouw.Meldingpaneel("Instellingen", $"Niet op te halen: {instellingen.Fout}. Start de broker en ververs dit scherm."));
             return;
         }
 
