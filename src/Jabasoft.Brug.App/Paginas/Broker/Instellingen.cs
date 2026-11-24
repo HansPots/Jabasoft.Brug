@@ -6,14 +6,18 @@ using Microsoft.UI.Xaml.Controls;
 namespace Jabasoft.Brug.App.Paginas.Broker;
 
 /// <summary>
-/// Broker &gt; Instellingen: de AI-instellingen die de broker voor de hele pc
-/// bewaart, plus Goose en Hermes.
+/// Broker &gt; Instellingen.
 ///
 /// Opbouw:
-/// 1. de actieve server - de broker stuurt alles (apps, Goose, Hermes én
-///    zoeken) naar die ene server - met de algemene schuifjes;
-/// 2. per server (LM Studio en Ollama) een eigen paneel met adres en het
-///    model per taak, elk met de modellijst van die server;
+/// 1. AI: de actieve server, het adres van elke server, en één lijst
+///    "model per taak". Een model hoort bij de taak, niet bij de server: de
+///    broker stuurt de vraag naar de actieve server en die laadt het model
+///    zelf als het nog niet geladen is. De broker bewaart per server een
+///    eigen set taakmodellen; de Brug schrijft de ene lijst in beide sets,
+///    zodat de broker zelf niet hoeft te veranderen.
+/// 2. Applicaties: ondergrens, extra context en wachttijd. Die horen bij de
+///    applicaties (AI Studio, Proefbank) en verhuizen naar hun module zodra
+///    die in de Brug zit; tot dan staan ze hier.
 /// 3. Goose, Hermes en (later) de modules.
 ///
 /// De instellingen gaan als JSON-boom heen en weer: alleen de velden op dit
@@ -50,49 +54,25 @@ public sealed class Instellingen : BrokerPagina
             return;
         }
 
-        // De modellijst van elke server wordt tegelijk opgehaald, maar het
-        // scherm wacht er niet op: een server die niet draait (Ollama) laat
-        // de broker een paar seconden zoeken. De lijsten vullen zich later in.
-        var lijstTaken = Servers
-            .Select(s => BrokerApi.ModellenVanAsync(s.Provider, Sectie(geheel, s.Sectie)["url"]?.GetValue<string>() ?? ""))
-            .ToArray();
         var actief = geheel["provider"]?.GetValue<string>() ?? "LmStudio";
+        var actieveSectie = Sectie(geheel, Servers.First(s => s.Provider == actief).Sectie);
 
-        // 2. Per server een paneel met adres en model per taak.
-        var serverVelden = new List<(string Sectie, TextBox Adres, List<(string Veld, ComboBox Keuze)> Taken)>();
-        var serverRaster = Bouw.Kolommen(2);
-        for (var i = 0; i < Servers.Length; i++)
-        {
-            var (provider, sectie, naam) = Servers[i];
-            var waarden = Sectie(geheel, sectie);
+        // De modellijst van de actieve server; het scherm wacht er niet op.
+        var lijstTaak = BrokerApi.ModellenVanAsync(actief, actieveSectie["url"]?.GetValue<string>() ?? "");
 
-            var inhoud = new StackPanel { Spacing = 14 };
-            var adres = new TextBox { Header = "Adres van de server", Text = waarden["url"]?.GetValue<string>() ?? "" };
-            var stand = Bouw.Melding("Modellijst ophalen…");
-            inhoud.Children.Add(adres);
-            inhoud.Children.Add(stand);
+        var boven = Bouw.Kolommen(2);
+        var (aiPaneel, keuzes, stand) = AiPaneel(geheel, actief, actieveSectie);
+        Bouw.Zet(boven, aiPaneel, 0, 0);
+        Bouw.Zet(boven, ApplicatiesPaneel(geheel), 0, 1);
+        Lijf.Children.Add(boven);
 
-            var taken = new List<(string Veld, ComboBox Keuze)>();
-            foreach (var (veld, label) in Taken)
-            {
-                var keuze = Keuze(label, [], waarden[veld]?.GetValue<string>() ?? "", bewerkbaar: true);
-                taken.Add((veld, keuze));
-                inhoud.Children.Add(keuze);
-            }
+        var lijst = await lijstTaak;
+        var modellen = lijst.Waarde?.Success == true ? lijst.Waarde.Models?.Order(StringComparer.OrdinalIgnoreCase).ToList() ?? [] : [];
+        VulKeuzes(keuzes, modellen);
+        stand.Text = modellen.Count > 0
+            ? $"{modellen.Count} modellen op {Servers.First(s => s.Provider == actief).Naam}. Het gekozen model wordt geladen zodra er een vraag voor is."
+            : $"Geen modellijst van de actieve server ({lijst.Waarde?.ErrorMessage ?? lijst.Fout}); je kunt de namen wel intypen.";
 
-            serverVelden.Add((sectie, adres, taken));
-            var paneel = Bouw.Paneel(naam, inhoud, provider == actief ? "actief" : "");
-            Bouw.Zet(serverRaster, paneel, 0, i);
-            _ = VulServerAsync(lijstTaken[i], naam, provider == actief, paneel, stand, taken);
-        }
-
-        // 1. De actieve server en de algemene instellingen, met één Opslaan voor alles hierboven en hieronder.
-        Lijf.Children.Add(ActiefPaneel(geheel, actief, serverVelden));
-        Lijf.Children.Add(serverRaster);
-
-        // 3. Goose, Hermes en de modules; hun keuzelijsten krijgen de modellen van de actieve server.
-        var actieveLijst = await lijstTaken[Array.FindIndex(Servers, s => s.Provider == actief)];
-        var modellen = actieveLijst.Waarde?.Models?.Order(StringComparer.OrdinalIgnoreCase).ToList() ?? [];
         var onder = Bouw.Kolommen(3);
         Bouw.Zet(onder, GoosePaneel(await goose, modellen), 0, 0);
         Bouw.Zet(onder, HermesPaneel(await hermes, modellen), 0, 1);
@@ -100,30 +80,104 @@ public sealed class Instellingen : BrokerPagina
         Lijf.Children.Add(onder);
     }
 
-    /// <summary>Zet de modellijst van een server in zijn keuzelijsten zodra hij binnen is; wat er al stond, blijft staan.</summary>
-    private static async Task VulServerAsync(
-        Task<Meting<ModellenLijst>> taak,
-        string naam,
-        bool actief,
-        Controls.Paneel paneel,
-        TextBlock stand,
-        List<(string Veld, ComboBox Keuze)> taken)
+    /// <summary>Actieve server, adressen en één lijst model per taak, met één Opslaan.</summary>
+    private static (Controls.Paneel Paneel, List<(string Veld, ComboBox Keuze)> Keuzes, TextBlock Stand) AiPaneel(
+        JsonObject geheel, string actief, JsonObject actieveSectie)
     {
-        var lijst = await taak;
-        var modellen = lijst.Waarde?.Success == true ? lijst.Waarde.Models?.Order(StringComparer.OrdinalIgnoreCase).ToList() ?? [] : [];
+        var inhoud = new StackPanel { Spacing = 14 };
 
-        if (modellen.Count == 0)
+        var server = Keuze("Actieve server", Servers.Select(s => s.Naam), Servers.First(s => s.Provider == actief).Naam, bewerkbaar: false);
+        inhoud.Children.Add(server);
+
+        var adressen = new List<(string Sectie, TextBox Adres)>();
+        foreach (var (_, sectie, naam) in Servers)
         {
-            stand.Text = lijst.Waarde?.ErrorMessage is { Length: > 0 } fout
-                ? $"Geen modellijst: {fout}"
-                : $"{naam} is niet bereikbaar op dit adres; je kunt de modelnamen wel intypen.";
-            paneel.Rechts = actief ? "ACTIEF · NIET BEREIKBAAR" : "NIET BEREIKBAAR";
-            return;
+            var adres = new TextBox { Header = $"Adres van {naam}", Text = Sectie(geheel, sectie)["url"]?.GetValue<string>() ?? "" };
+            adressen.Add((sectie, adres));
+            inhoud.Children.Add(adres);
         }
 
-        stand.Visibility = Visibility.Collapsed;
-        paneel.Rechts = actief ? $"ACTIEF · {modellen.Count} MODELLEN" : $"{modellen.Count} MODELLEN";
-        foreach (var (_, keuze) in taken)
+        inhoud.Children.Add(Bouw.Kop("MODEL PER TAAK"));
+        var stand = Bouw.Melding("Modellijst ophalen…");
+        inhoud.Children.Add(stand);
+
+        // De taakmodellen komen uit de actieve server; bij het opslaan gaan ze naar beide.
+        var keuzes = new List<(string Veld, ComboBox Keuze)>();
+        foreach (var (veld, label) in Taken)
+        {
+            var keuze = Keuze(label, [], actieveSectie[veld]?.GetValue<string>() ?? "", bewerkbaar: true);
+            keuzes.Add((veld, keuze));
+            inhoud.Children.Add(keuze);
+        }
+
+        var melding = Bouw.Melding("");
+        melding.VerticalAlignment = VerticalAlignment.Center;
+        var opslaan = Bouw.Knop("Opslaan", async (_, _) =>
+        {
+            var gekozen = Servers.First(s => s.Naam == (server.SelectedItem as string)).Provider;
+            geheel["provider"] = gekozen;
+            geheel["zoekProvider"] = gekozen; // zoeken volgt de actieve server
+
+            foreach (var (sectie, adres) in adressen)
+            {
+                var waarden = Sectie(geheel, sectie).DeepClone().AsObject();
+                waarden["url"] = adres.Text.Trim();
+                foreach (var (veld, keuze) in keuzes)
+                {
+                    waarden[veld] = Waarde(keuze);
+                }
+
+                geheel[sectie] = waarden;
+            }
+
+            var fout = await BrokerApi.BewaarInstellingenAsync(geheel);
+            melding.Text = fout is null ? $"Bewaard om {DateTime.Now:HH:mm:ss}." : $"Niet bewaard: {fout}";
+            App.AppLog.Schrijf("brug", fout is null ? $"AI-instellingen bewaard (actief: {gekozen})" : $"AI-instellingen niet bewaard: {fout}");
+        });
+        inhoud.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { opslaan, melding } });
+
+        return (Bouw.Paneel("AI", inhoud, Servers.First(s => s.Provider == actief).Naam), keuzes, stand);
+    }
+
+    /// <summary>Instellingen die bij de applicaties horen; staan hier tot hun module in de Brug zit.</summary>
+    private static Controls.Paneel ApplicatiesPaneel(JsonObject geheel)
+    {
+        var ondergrens = Schuif("Ondergrens semantisch zoeken", 0, 100, 1,
+            Math.Round((geheel["minimumSemanticScore"]?.GetValue<double>() ?? 0.5) * 100), w => $"{w:0}%");
+        var rondes = Schuif("Automatisch meer context ophalen", 0, 5, 1,
+            geheel["maxContextRondes"]?.GetValue<int>() ?? 0, w => $"max {w:0} extra ronde(s)");
+        var wachttijd = Schuif("Wachttijd op een antwoord", 1, 30, 1,
+            Math.Round((geheel["chatTimeoutSeconden"]?.GetValue<int>() ?? 300) / 60.0), w => $"{w:0} minuten");
+
+        var melding = Bouw.Melding("");
+        melding.VerticalAlignment = VerticalAlignment.Center;
+        var opslaan = Bouw.Knop("Opslaan", async (_, _) =>
+        {
+            geheel["minimumSemanticScore"] = ondergrens.Schuif.Value / 100.0;
+            geheel["maxContextRondes"] = (int)rondes.Schuif.Value;
+            geheel["chatTimeoutSeconden"] = (int)wachttijd.Schuif.Value * 60;
+            var fout = await BrokerApi.BewaarInstellingenAsync(geheel);
+            melding.Text = fout is null ? $"Bewaard om {DateTime.Now:HH:mm:ss}." : $"Niet bewaard: {fout}";
+        });
+
+        var inhoud = new StackPanel
+        {
+            Spacing = 14,
+            Children =
+            {
+                Bouw.Melding("Voor AI Studio en Proefbank. Deze verhuizen naar hun eigen module zodra die in de Brug zit."),
+                ondergrens.Paneel,
+                rondes.Paneel,
+                wachttijd.Paneel,
+                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { opslaan, melding } },
+            },
+        };
+        return Bouw.Paneel("Applicaties", inhoud, "voorlopig hier");
+    }
+
+    private static void VulKeuzes(List<(string Veld, ComboBox Keuze)> keuzes, List<string> modellen)
+    {
+        foreach (var (_, keuze) in keuzes)
         {
             var huidig = keuze.Text;
             var items = modellen.ToList();
@@ -135,63 +189,6 @@ public sealed class Instellingen : BrokerPagina
             keuze.ItemsSource = items;
             keuze.Text = huidig;
         }
-    }
-
-    private static Controls.Paneel ActiefPaneel(
-        JsonObject geheel,
-        string actief,
-        List<(string Sectie, TextBox Adres, List<(string Veld, ComboBox Keuze)> Taken)> serverVelden)
-    {
-        var namen = Servers.Select(s => s.Naam).ToList();
-        var server = Keuze("Actieve server", namen, Servers.First(s => s.Provider == actief).Naam, bewerkbaar: false);
-
-        var ondergrens = Schuif("Ondergrens semantisch zoeken", 0, 100, 1,
-            Math.Round((geheel["minimumSemanticScore"]?.GetValue<double>() ?? 0.5) * 100), w => $"{w:0}%");
-        var rondes = Schuif("Automatisch meer context ophalen", 0, 5, 1,
-            geheel["maxContextRondes"]?.GetValue<int>() ?? 0, w => $"max {w:0} extra ronde(s)");
-        var wachttijd = Schuif("Wachttijd op een antwoord", 1, 30, 1,
-            Math.Round((geheel["chatTimeoutSeconden"]?.GetValue<int>() ?? 300) / 60.0), w => $"{w:0} minuten");
-
-        var melding = Bouw.Melding("");
-        var opslaan = Bouw.Knop("Opslaan", async (_, _) =>
-        {
-            var gekozen = Servers.First(s => s.Naam == (server.SelectedItem as string)).Provider;
-            geheel["provider"] = gekozen;
-
-            // Zoeken volgt de actieve server: er is één plek die bepaalt waar alles heen gaat.
-            geheel["zoekProvider"] = gekozen;
-
-            foreach (var (sectie, adres, taken) in serverVelden)
-            {
-                var waarden = Sectie(geheel, sectie).DeepClone().AsObject();
-                waarden["url"] = adres.Text.Trim();
-                foreach (var (veld, keuze) in taken)
-                {
-                    waarden[veld] = Waarde(keuze);
-                }
-
-                geheel[sectie] = waarden;
-            }
-
-            geheel["minimumSemanticScore"] = ondergrens.Schuif.Value / 100.0;
-            geheel["maxContextRondes"] = (int)rondes.Schuif.Value;
-            geheel["chatTimeoutSeconden"] = (int)wachttijd.Schuif.Value * 60;
-
-            var fout = await BrokerApi.BewaarInstellingenAsync(geheel);
-            melding.Text = fout is null ? $"Bewaard om {DateTime.Now:HH:mm:ss}." : $"Niet bewaard: {fout}";
-            App.AppLog.Schrijf("brug", fout is null ? $"AI-instellingen bewaard (actief: {gekozen})" : $"AI-instellingen niet bewaard: {fout}");
-        });
-
-        var uitleg = Bouw.Melding("De broker stuurt alles naar deze server: de apps, Goose, Hermes en het zoeken. " +
-                                  "Wissel je van server en heeft die een ander zoekmodel, dan bouwt de broker de zoekindex op de achtergrond opnieuw op.");
-
-        var raster = Bouw.Kolommen(2, 32);
-        Bouw.Zet(raster, new StackPanel { Spacing = 10, Children = { server, uitleg } }, 0, 0);
-        Bouw.Zet(raster, new StackPanel { Spacing = 10, Children = { ondergrens.Paneel, rondes.Paneel, wachttijd.Paneel } }, 0, 1);
-
-        var inhoud = new StackPanel { Spacing = 14, Children = { raster, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { opslaan, melding } } } };
-        melding.VerticalAlignment = VerticalAlignment.Center;
-        return Bouw.Paneel("AI", inhoud, "Opslaan bewaart ook beide servers");
     }
 
     private static Controls.Paneel GoosePaneel(Meting<JsonObject> goose, List<string> modellen)
