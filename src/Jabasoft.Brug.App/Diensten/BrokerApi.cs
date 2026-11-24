@@ -94,6 +94,10 @@ public static class BrokerApi
     /// <summary>De modellen op de ingestelde AI-server (LM Studio of Ollama).</summary>
     public static Task<Meting<ModellenLijst>> ServerModellenAsync() => HaalAsync<ModellenLijst>("/api/settings/models");
 
+    /// <summary>De modellen op een bepaalde server (provider "LmStudio" of "Ollama"), ook als die niet de actieve is.</summary>
+    public static Task<Meting<ModellenLijst>> ModellenVanAsync(string provider, string serverUrl) =>
+        HaalAsync<ModellenLijst>($"/api/models?provider={provider}&serverUrl={Uri.EscapeDataString(serverUrl)}");
+
     public static Task<Meting<JsonObject>> InstellingenAsync() => HaalAsync<JsonObject>("/api/settings");
 
     public static Task<Meting<JsonObject>> GooseAsync() => HaalAsync<JsonObject>("/api/goose");
