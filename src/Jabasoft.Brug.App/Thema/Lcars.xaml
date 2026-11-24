@@ -36,6 +36,7 @@
     <Color x:Key="HealthOkColor">#66CC66</Color>
     <Color x:Key="HealthBusyColor">#FF9900</Color>
     <Color x:Key="HealthErrorColor">#CC4444</Color>
+    <Color x:Key="HealthRustColor">#8A8A99</Color>
 
     <!-- Hoekrondingen: LCARS is rond. Altijd alle vier de hoeken uitschrijven. -->
     <CornerRadius x:Key="RadiusSmall">3,3,3,3</CornerRadius>
@@ -62,6 +63,7 @@
             <SolidColorBrush x:Key="HealthOkBrush" Color="{StaticResource HealthOkColor}" />
             <SolidColorBrush x:Key="HealthBusyBrush" Color="{StaticResource HealthBusyColor}" />
             <SolidColorBrush x:Key="HealthErrorBrush" Color="{StaticResource HealthErrorColor}" />
+            <SolidColorBrush x:Key="HealthRustBrush" Color="{StaticResource HealthRustColor}" />
 
             <LinearGradientBrush x:Key="HeaderGradientBrush" StartPoint="0,0" EndPoint="1,0">
                 <GradientStop Offset="0" Color="{StaticResource HeaderGradientStartColor}" />

@@ -195,7 +195,7 @@ public sealed class Health : BrokerPagina
         status.Children.Add(Bouw.Bolletje(kaart.Stand switch
         {
             Stand.Ok => "HealthOkBrush",
-            Stand.Rust => "HealthBusyBrush",
+            Stand.Rust => "HealthRustBrush",
             _ => "HealthErrorBrush",
         }));
         var statusTekst = Bouw.Tekst(kaart.Status);
