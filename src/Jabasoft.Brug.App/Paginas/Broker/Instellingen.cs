@@ -61,8 +61,8 @@ public sealed class Instellingen : BrokerPagina
         var lijstTaak = BrokerApi.ModellenVanAsync(actief, actieveSectie["url"]?.GetValue<string>() ?? "");
 
         var boven = Bouw.Kolommen(2);
-        var (aiPaneel, keuzes, stand) = AiPaneel(geheel, actief, actieveSectie);
-        Bouw.Zet(boven, aiPaneel, 0, 0);
+        var (brugPaneel, keuzes, stand) = BrugPaneel(geheel, actief, actieveSectie);
+        Bouw.Zet(boven, new StackPanel { Spacing = 24, Children = { BrokerPaneel(geheel, actief), brugPaneel } }, 0, 0);
         Bouw.Zet(boven, ApplicatiesPaneel(geheel), 0, 1);
         Lijf.Children.Add(boven);
 
@@ -80,9 +80,8 @@ public sealed class Instellingen : BrokerPagina
         Lijf.Children.Add(onder);
     }
 
-    /// <summary>Actieve server, adressen en één lijst model per taak, met één Opslaan.</summary>
-    private static (Controls.Paneel Paneel, List<(string Veld, ComboBox Keuze)> Keuzes, TextBlock Stand) AiPaneel(
-        JsonObject geheel, string actief, JsonObject actieveSectie)
+    /// <summary>Broker: naar welke server hij alles stuurt, en waar die servers zitten.</summary>
+    private static Controls.Paneel BrokerPaneel(JsonObject geheel, string actief)
     {
         var inhoud = new StackPanel { Spacing = 14 };
 
@@ -97,7 +96,35 @@ public sealed class Instellingen : BrokerPagina
             inhoud.Children.Add(adres);
         }
 
-        inhoud.Children.Add(Bouw.Kop("MODEL PER TAAK"));
+        var melding = Bouw.Melding("");
+        melding.VerticalAlignment = VerticalAlignment.Center;
+        var opslaan = Bouw.Knop("Opslaan", async (_, _) =>
+        {
+            var gekozen = Servers.First(s => s.Naam == (server.SelectedItem as string)).Provider;
+            geheel["provider"] = gekozen;
+            geheel["zoekProvider"] = gekozen; // zoeken volgt de actieve server
+
+            foreach (var (sectie, adres) in adressen)
+            {
+                var waarden = Sectie(geheel, sectie).DeepClone().AsObject();
+                waarden["url"] = adres.Text.Trim();
+                geheel[sectie] = waarden;
+            }
+
+            var fout = await BrokerApi.BewaarInstellingenAsync(geheel);
+            melding.Text = fout is null ? $"Bewaard om {DateTime.Now:HH:mm:ss}." : $"Niet bewaard: {fout}";
+            App.AppLog.Schrijf("brug", fout is null ? $"Broker-instellingen bewaard (actief: {gekozen})" : $"Broker-instellingen niet bewaard: {fout}");
+        });
+        inhoud.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { opslaan, melding } });
+
+        return Bouw.Paneel("Broker", inhoud, Servers.First(s => s.Provider == actief).Naam);
+    }
+
+    /// <summary>Brug: één lijst model per taak; bij opslaan in beide serversecties van de broker.</summary>
+    private static (Controls.Paneel Paneel, List<(string Veld, ComboBox Keuze)> Keuzes, TextBlock Stand) BrugPaneel(
+        JsonObject geheel, string actief, JsonObject actieveSectie)
+    {
+        var inhoud = new StackPanel { Spacing = 14 };
         var stand = Bouw.Melding("Modellijst ophalen…");
         inhoud.Children.Add(stand);
 
@@ -114,14 +141,10 @@ public sealed class Instellingen : BrokerPagina
         melding.VerticalAlignment = VerticalAlignment.Center;
         var opslaan = Bouw.Knop("Opslaan", async (_, _) =>
         {
-            var gekozen = Servers.First(s => s.Naam == (server.SelectedItem as string)).Provider;
-            geheel["provider"] = gekozen;
-            geheel["zoekProvider"] = gekozen; // zoeken volgt de actieve server
-
-            foreach (var (sectie, adres) in adressen)
+            // Eén lijst, in beide serversecties: het model hoort bij de taak, niet bij de server.
+            foreach (var (_, sectie, _) in Servers)
             {
                 var waarden = Sectie(geheel, sectie).DeepClone().AsObject();
-                waarden["url"] = adres.Text.Trim();
                 foreach (var (veld, keuze) in keuzes)
                 {
                     waarden[veld] = Waarde(keuze);
@@ -132,11 +155,11 @@ public sealed class Instellingen : BrokerPagina
 
             var fout = await BrokerApi.BewaarInstellingenAsync(geheel);
             melding.Text = fout is null ? $"Bewaard om {DateTime.Now:HH:mm:ss}." : $"Niet bewaard: {fout}";
-            App.AppLog.Schrijf("brug", fout is null ? $"AI-instellingen bewaard (actief: {gekozen})" : $"AI-instellingen niet bewaard: {fout}");
+            App.AppLog.Schrijf("brug", fout is null ? "Model per taak bewaard" : $"Model per taak niet bewaard: {fout}");
         });
         inhoud.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 16, Children = { opslaan, melding } });
 
-        return (Bouw.Paneel("AI", inhoud, Servers.First(s => s.Provider == actief).Naam), keuzes, stand);
+        return (Bouw.Paneel("Brug", inhoud, "model per taak"), keuzes, stand);
     }
 
     /// <summary>Instellingen die bij de applicaties horen; staan hier tot hun module in de Brug zit.</summary>
