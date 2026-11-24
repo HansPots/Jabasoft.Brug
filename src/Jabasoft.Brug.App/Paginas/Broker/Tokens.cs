@@ -110,7 +110,8 @@ public sealed class Tokens : BrokerPagina
                 string.Create(Bouw.Nl, $"Week {WeekNummer(week.Week)}  ·  {week.Start:d MMM} – {week.End:d MMM yyyy}"),
                 $"{Bouw.Getal(week.TotalTokens)} tokens · {Bouw.Getal(week.Calls)} aanroepen",
                 (double)week.TotalTokens / grootste,
-                week.Week == _gekozenWeek ? "AccentBrush" : "AccentBrushDark");
+                // Alleen de gekozen week donkergeel, de rest lila.
+                week.Week == _gekozenWeek ? "AccentBrushDark" : "BorderBrush");
 
             var knop = new Button
             {
