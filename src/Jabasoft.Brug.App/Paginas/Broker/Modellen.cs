@@ -218,7 +218,7 @@ public sealed class Modellen : BrokerPagina
             Content = rij,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background = gekozen ? Bouw.Kleur("BorderBrush") : null,
+            Background = gekozen ? Bouw.Kleur("AccentBrushDark") : null,
             BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(12, 12, 12, 12),
             Padding = new Thickness(10, 5, 10, 5),
