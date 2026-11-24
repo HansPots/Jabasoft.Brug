@@ -181,8 +181,8 @@ public sealed class Health : BrokerPagina
 
         return new Border
         {
-            Background = Bouw.Kleur("BorderBrush"),
-            CornerRadius = new CornerRadius(22, 22, 22, 0),
+            Background = Bouw.Kleur("AccentBrushDark"),
+            CornerRadius = new CornerRadius(22, 22, 22, 22),
             Height = 44,
             Child = new Grid { Margin = new Thickness(20, 0, 20, 0), Children = { links, rechts } },
         };

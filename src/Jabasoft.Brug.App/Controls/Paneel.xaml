@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <!-- Een lila kader met donkergele titelbalk en vrije inhoud, vier ronde hoeken.
+    <!-- Een lila kader met lila titelbalk en vrije inhoud, vier ronde hoeken.
          Rechts in de balk past een korte toevoeging (een aantal, een status).
          Zelfde vorm als Infoblok, maar met eigen inhoud in plaats van een
          regel tekst. -->
@@ -16,7 +16,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Border Background="{ThemeResource AccentBrushDark}"
+            <Border Background="{ThemeResource BorderBrush}"
                     CornerRadius="{StaticResource RegionBorderInnerRadius}"
                     Padding="14,5,14,5">
                 <Grid>

@@ -170,8 +170,9 @@ public static class Bouw
     public static Controls.Waardeveld Veld(string label, string waarde) => new() { Label = label.ToUpper(Nl), Waarde = waarde };
 
     /// <summary>
-    /// Kengetallen in één lila band met vier ronde hoeken: per vak een
-    /// label en de waarde, zwart op lila, gelijk verdeeld.
+    /// Kengetallen in één donkergele band met vier ronde hoeken (bovenaan elke
+    /// pagina, ook de band van Health): per vak een label en de waarde, zwart
+    /// op donkergeel, gelijk verdeeld.
     /// </summary>
     public static Border Band(params (string Label, string Waarde)[] vakken)
     {
@@ -203,7 +204,7 @@ public static class Bouw
 
         return new Border
         {
-            Background = Kleur("BorderBrush"),
+            Background = Kleur("AccentBrushDark"),
             CornerRadius = new CornerRadius(22, 22, 22, 22),
             Height = 44,
             Child = grid,
