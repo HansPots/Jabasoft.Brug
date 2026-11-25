@@ -10,6 +10,9 @@ namespace Jabasoft.Brug.App;
 public partial class App : Application
 {
     private Window? _venster;
+
+    /// <summary>Het venster van de Brug, voor dialogen die een venster nodig hebben (bestand kiezen).</summary>
+    public static Window? Hoofdvenster => (Current as App)?._venster;
     private BrokerLoglezer? _brokerLezer;
 
     /// <summary>Wat de Brug zelf doet (eerste infoblok in de header).</summary>

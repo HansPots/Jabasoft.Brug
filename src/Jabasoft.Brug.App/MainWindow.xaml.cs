@@ -24,6 +24,16 @@ public sealed partial class MainWindow : Window
         Menu.Gekozen += (_, sleutel) => Toon(sleutel);
         Menu.Vul(Menukaart.Onderdelen);
         Menu.Kies(Menukaart.Startscherm);
+
+        // Een ImageFunn-scherm stuurt een beeld door (bijvoorbeeld "Laat dit beeld bewegen"): open dat scherm en geef het beeld mee.
+        Modules.ImageFunn.Doorgeven.Gevraagd += async (_, vraag) =>
+        {
+            Menu.Kies(vraag.Scherm);
+            if (_schermen.TryGetValue(vraag.Scherm, out var scherm) && scherm is Modules.ImageFunn.IOntvangtBeeld ontvanger)
+            {
+                await ontvanger.OntvangAsync(vraag.Pad);
+            }
+        };
     }
 
     private void Toon(string sleutel)
@@ -64,6 +74,8 @@ public sealed partial class MainWindow : Window
         "broker.logs" => new Paginas.Broker.Logs(),
         "broker.instellingen" => new Paginas.Broker.Instellingen(),
         "imagefunn.tekstnaarbeeld" => new Modules.ImageFunn.TekstNaarBeeld(),
+        "imagefunn.beeldnaarvideo" => new Modules.ImageFunn.VideoScherm(vanBeeld: true),
+        "imagefunn.tekstnaarvideo" => new Modules.ImageFunn.VideoScherm(vanBeeld: false),
         _ => new LegePagina(onderdeel),
     };
 
