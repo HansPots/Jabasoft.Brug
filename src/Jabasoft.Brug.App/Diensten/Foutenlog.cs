@@ -1,14 +1,13 @@
 namespace Jabasoft.Brug.App.Diensten;
 
 /// <summary>
-/// Onafgevangen fouten op schijf: %LOCALAPPDATA%\Jabasoft\Brug\fouten.log,
-/// met de volledige stack trace. Zo is na een crash terug te vinden wat er
-/// misging. Het bestand wordt boven 1 MB opnieuw begonnen.
+/// Onafgevangen fouten op schijf: Brug\fouten.log in de gegevensmap, met de
+/// volledige stack trace. Zo is na een crash terug te vinden wat er misging.
+/// Het bestand wordt boven 1 MB opnieuw begonnen.
 /// </summary>
 public static class Foutenlog
 {
-    public static string Pad { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Jabasoft", "Brug", "fouten.log");
+    public static string Pad { get; } = Gegevensmap.Overgezet("Brug", "fouten.log");
 
     private static readonly Lock Slot = new();
 

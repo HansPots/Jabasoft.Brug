@@ -4,16 +4,16 @@ namespace Jabasoft.Brug.App.Layout;
 
 /// <summary>
 /// Onthoudt hoe de gebruiker de indeling heeft geschoven (de breedtes van
-/// de infoblokken), in een klein JSON-bestand in
-/// %LOCALAPPDATA%\Jabasoft\Brug\indeling.json. Per sleutel een rij getallen.
+/// de infoblokken), in een klein JSON-bestand in de gegevensmap:
+/// Brug\indeling.json (vroeger %LOCALAPPDATA%\Jabasoft\Brug; dat bestand
+/// wordt eenmalig overgenomen). Per sleutel een rij getallen.
 ///
 /// Bewust geen database: het is een voorkeur van dit scherm op deze pc, en
 /// een kapot of ontbrekend bestand mag nooit het starten tegenhouden.
 /// </summary>
 public static class Indeling
 {
-    private static readonly string Bestand = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Jabasoft", "Brug", "indeling.json");
+    private static readonly string Bestand = Diensten.Gegevensmap.Overgezet("Brug", "indeling.json");
 
     public static double[]? Lees(string sleutel)
     {

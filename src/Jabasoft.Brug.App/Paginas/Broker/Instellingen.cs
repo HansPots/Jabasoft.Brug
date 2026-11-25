@@ -18,7 +18,8 @@ namespace Jabasoft.Brug.App.Paginas.Broker;
 /// 2. Applicaties: ondergrens, extra context en wachttijd. Die horen bij de
 ///    applicaties (AI Studio, Proefbank) en verhuizen naar hun module zodra
 ///    die in de Brug zit; tot dan staan ze hier.
-/// 3. Goose, Hermes en (later) de modules.
+/// 3. Goose, Hermes, Bestanden (de gegevensmap van de Brug) en ImageFunn;
+///    de andere modules volgen als ze in de Brug zitten.
 ///
 /// De instellingen gaan als JSON-boom heen en weer: alleen de velden op dit
 /// scherm worden veranderd, de rest gaat ongewijzigd terug naar de broker.
@@ -76,8 +77,75 @@ public sealed class Instellingen : BrokerPagina
         var onder = Bouw.Kolommen(3);
         Bouw.Zet(onder, GoosePaneel(await goose, modellen), 0, 0);
         Bouw.Zet(onder, HermesPaneel(await hermes, modellen), 0, 1);
-        Bouw.Zet(onder, Bouw.Paneel("Modules", Bouw.Melding("AI Studio, TabStudio en ImageFunn hebben nog geen eigen instellingen in de Brug. Die komen hier zodra de module in de Brug zit."), "fase 6"), 0, 2);
+        Bouw.Zet(onder, new StackPanel { Spacing = 24, Children = { BestandenPaneel(), ImageFunnPaneel() } }, 0, 2);
         Lijf.Children.Add(onder);
+    }
+
+    /// <summary>Bestanden: de gegevensmap waarin alle bestanden van de Brug en de modules komen.</summary>
+    private static Controls.Paneel BestandenPaneel()
+    {
+        var map = new TextBox { Header = "Gegevensmap", Text = Gegevensmap.Gekozen };
+        var melding = Bouw.Melding(Gegevensmap.Gekozen == Gegevensmap.Pad
+            ? "Hier komen voorkeuren, indeling, foutenlog en alles wat de modules maken (zoals de beelden en films van ImageFunn)."
+            : $"Nu nog in gebruik: {Gegevensmap.Pad}. De nieuwe map geldt na het opnieuw starten van de Brug.");
+
+        var opslaan = Bouw.Knop("Opslaan", (_, _) =>
+        {
+            var fout = Gegevensmap.Kies(map.Text);
+            melding.Text = fout is not null
+                ? $"Niet bewaard: {fout}"
+                : string.Equals(Gegevensmap.Gekozen, Gegevensmap.Pad, StringComparison.OrdinalIgnoreCase)
+                    ? "Bewaard; dit is de map die nu al in gebruik is."
+                    : "Bewaard. De nieuwe map geldt na het opnieuw starten van de Brug; wat in de oude map staat, blijft daar.";
+            App.AppLog.Schrijf("brug", fout is null ? $"Gegevensmap: {Gegevensmap.Gekozen}" : $"Gegevensmap niet bewaard: {fout}");
+        });
+
+        return Bouw.Paneel("Bestanden", new StackPanel { Spacing = 14, Children = { map, opslaan, melding } });
+    }
+
+    /// <summary>ImageFunn: het standaard beeldmodel en wanneer de beeldservice zijn geheugen teruggeeft.</summary>
+    private static Controls.Paneel ImageFunnPaneel()
+    {
+        (string Tag, string Naam)[] modellen =
+        [
+            ("realvis", "RealVisXL - fotorealistisch (standaard)"),
+            ("juggernaut", "Juggernaut XL - fotorealistisch"),
+            ("flux", "FLUX.1-schnell - snel, zonder bijsturen of cast"),
+        ];
+        (int Seconden, string Naam)[] ontladen =
+        [
+            (60, "Na 1 minuut stilstand"),
+            (300, "Na 5 minuten stilstand (standaard)"),
+            (900, "Na 15 minuten stilstand"),
+            (3600, "Na een uur stilstand"),
+            (0, "Nooit"),
+        ];
+
+        var huidigModel = Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurBeeldmodel, "realvis");
+        var huidigOntladen = Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, 300);
+        var model = Keuze("Standaard beeldmodel", modellen.Select(m => m.Naam), modellen.FirstOrDefault(m => m.Tag == huidigModel).Naam ?? modellen[0].Naam, bewerkbaar: false);
+        var stoppen = Keuze("Beeldservice geeft het geheugen terug", ontladen.Select(o => o.Naam), ontladen.FirstOrDefault(o => o.Seconden == huidigOntladen).Naam ?? ontladen[1].Naam, bewerkbaar: false);
+
+        var melding = Bouw.Melding($"Beelden, video's en films staan in {Modules.ImageFunn.Beeldservice.Uitvoermap}.");
+        var opslaan = Bouw.Knop("Opslaan", async (_, _) =>
+        {
+            var tag = modellen.First(m => m.Naam == (model.SelectedItem as string)).Tag;
+            var seconden = ontladen.First(o => o.Naam == (stoppen.SelectedItem as string)).Seconden;
+            var veranderd = tag != Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurBeeldmodel, "realvis")
+                            || seconden != Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, 300);
+            Layout.Voorkeuren.Bewaar(Modules.ImageFunn.Beeldservice.VoorkeurBeeldmodel, tag);
+            Layout.Voorkeuren.Bewaar(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, seconden.ToString(Bouw.Nl));
+
+            // De service leest deze keuzes bij het starten: draait hij en loopt er niets, dan stopt hij nu, zodat de
+            // volgende opdracht hem met de nieuwe keuzes start.
+            var vrij = !veranderd || await Modules.ImageFunn.Beeldservice.MaakVideogeheugenVrijAsync();
+            melding.Text = vrij
+                ? $"Bewaard om {DateTime.Now:HH:mm:ss}."
+                : "Bewaard. Er loopt nog een opdracht; de keuzes gelden zodra de beeldservice opnieuw start.";
+            App.AppLog.Schrijf("imagefunn", $"Instellingen bewaard: beeldmodel {tag}, geheugen terug na {seconden} s");
+        });
+
+        return Bouw.Paneel("ImageFunn", new StackPanel { Spacing = 14, Children = { model, stoppen, opslaan, melding } });
     }
 
     /// <summary>Broker: naar welke server hij alles stuurt, en waar die servers zitten.</summary>

@@ -63,6 +63,7 @@ public sealed partial class MainWindow : Window
         "broker.modellen" => new Paginas.Broker.Modellen(),
         "broker.logs" => new Paginas.Broker.Logs(),
         "broker.instellingen" => new Paginas.Broker.Instellingen(),
+        "imagefunn.tekstnaarbeeld" => new Modules.ImageFunn.TekstNaarBeeld(),
         _ => new LegePagina(onderdeel),
     };
 

@@ -30,10 +30,23 @@ public static class Menukaart
         ]),
 
         // Modules: staan er al, maar zijn pas te openen als ze in de Brug zitten.
+        // ImageFunn is de eerste (fase 4); zijn schermen komen er een voor een bij.
+        new("imagefunn", "ImageFunn", "", Kinderen:
+        [
+            new("imagefunn.tekstnaarbeeld", "Tekst naar beeld", "",
+                "Een beeld maken uit een omschrijving, met galerij.", Fase: 4),
+            new("imagefunn.beeldnaartekst", "Beeld naar tekst", "",
+                "Een beeld laten beschrijven, uitlezen of omzetten naar een prompt.", Fase: 4, Beschikbaar: false),
+            new("imagefunn.beeldnaarvideo", "Beeld naar video", "",
+                "Een beeld laten bewegen.", Fase: 4, Beschikbaar: false),
+            new("imagefunn.tekstnaarvideo", "Tekst naar video", "",
+                "Een video maken uit een omschrijving.", Fase: 4, Beschikbaar: false),
+            new("imagefunn.film", "Film maken", "",
+                "Een verhaal in scènes, met cast, sleutelbeelden en de film.", Fase: 4, Beschikbaar: false),
+        ]),
         new("aistudio", "AI Studio", "", Fase: 6, Beschikbaar: false),
         new("tabstudio", "TabStudio", "", Fase: 6, Beschikbaar: false),
-        new("imagefunn", "ImageFunn", "", Fase: 6, Beschikbaar: false),
-        new("proefbank", "Proefbank", "", Fase: 5, Beschikbaar: false),
+        new("proefbank", "Proefbank", "", Fase: 6, Beschikbaar: false),
     ];
 
     /// <summary>Zoekt een onderdeel op sleutel, ook in submenu's.</summary>
