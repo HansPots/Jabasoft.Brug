@@ -47,7 +47,105 @@ public static class BrugDatabase
             CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_Modellen_Created DEFAULT SYSUTCDATETIME(),
             UpdatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_Modellen_Updated DEFAULT SYSUTCDATETIME())
         """,
+
+        // 2: sterren - zelf ingestelde kwaliteit (0-5) en eigen favoriet per onderdeel (zie Modelsterren).
+        """
+        CREATE TABLE dbo.Modelsterren (
+            Naam         NVARCHAR(200) NOT NULL CONSTRAINT PK_Modelsterren PRIMARY KEY,
+            Sterren      TINYINT NOT NULL CONSTRAINT CK_Modelsterren_Sterren CHECK (Sterren BETWEEN 0 AND 5),
+            CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_Modelsterren_Created DEFAULT SYSUTCDATETIME(),
+            UpdatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_Modelsterren_Updated DEFAULT SYSUTCDATETIME());
+        CREATE TABLE dbo.Favorieten (
+            Naam         NVARCHAR(200) NOT NULL,
+            Onderdeel    NVARCHAR(50)  NOT NULL,
+            CreatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_Favorieten_Created DEFAULT SYSUTCDATETIME(),
+            UpdatedAtUtc DATETIME2 NOT NULL CONSTRAINT DF_Favorieten_Updated DEFAULT SYSUTCDATETIME(),
+            CONSTRAINT PK_Favorieten PRIMARY KEY (Naam, Onderdeel));
+        """,
     ];
+
+    /// <summary>Zelf ingestelde kwaliteit per model en eigen favorieten (model, onderdeel).</summary>
+    public static async Task<(Dictionary<string, int> Sterren, HashSet<(string Naam, string Onderdeel)> Favorieten)> SterrenAsync()
+    {
+        var sterren = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var favorieten = new HashSet<(string, string)>();
+        if (!Beschikbaar)
+        {
+            return (sterren, favorieten);
+        }
+
+        try
+        {
+            await using var verbinding = new SqlConnection(Verbinding);
+            await verbinding.OpenAsync();
+
+            await using (var opdracht = new SqlCommand("SELECT Naam, Sterren FROM dbo.Modelsterren", verbinding))
+            await using (var lezer = await opdracht.ExecuteReaderAsync())
+            {
+                while (await lezer.ReadAsync())
+                {
+                    sterren[lezer.GetString(0)] = lezer.GetByte(1);
+                }
+            }
+
+            await using (var opdracht = new SqlCommand("SELECT Naam, Onderdeel FROM dbo.Favorieten", verbinding))
+            await using (var lezer = await opdracht.ExecuteReaderAsync())
+            {
+                while (await lezer.ReadAsync())
+                {
+                    favorieten.Add((lezer.GetString(0).ToLowerInvariant(), lezer.GetString(1)));
+                }
+            }
+        }
+        catch (Exception fout)
+        {
+            App.AppLog.Schrijf("brug", $"Sterren lezen mislukt: {fout.Message}");
+        }
+
+        return (sterren, favorieten);
+    }
+
+    /// <summary>Zet de eigen kwaliteit van een model (0-5), of haalt hem weg (null = weer de schatting). Null als het lukte, anders de reden.</summary>
+    public static Task<string?> ZetSterrenAsync(string naam, int? sterren) => VoerVeiligAsync(sterren is { } aantal
+        ? ("""
+           UPDATE dbo.Modelsterren SET Sterren = @sterren, UpdatedAtUtc = SYSUTCDATETIME() WHERE Naam = @naam;
+           IF @@ROWCOUNT = 0 INSERT INTO dbo.Modelsterren (Naam, Sterren) VALUES (@naam, @sterren);
+           """, [("@naam", naam), ("@sterren", Math.Clamp(aantal, 0, 5))])
+        : ("DELETE FROM dbo.Modelsterren WHERE Naam = @naam", [("@naam", naam)]));
+
+    /// <summary>Zet of haalt een eigen favoriet. Null als het lukte, anders de reden.</summary>
+    public static Task<string?> ZetFavorietAsync(string naam, string onderdeel, bool favoriet) => VoerVeiligAsync(favoriet
+        ? ("""
+           IF NOT EXISTS (SELECT 1 FROM dbo.Favorieten WHERE Naam = @naam AND Onderdeel = @onderdeel)
+               INSERT INTO dbo.Favorieten (Naam, Onderdeel) VALUES (@naam, @onderdeel);
+           """, [("@naam", naam), ("@onderdeel", onderdeel)])
+        : ("DELETE FROM dbo.Favorieten WHERE Naam = @naam AND Onderdeel = @onderdeel", [("@naam", naam), ("@onderdeel", onderdeel)]));
+
+    private static async Task<string?> VoerVeiligAsync((string Sql, (string Naam, object Waarde)[] Parameters) opdrachtInfo)
+    {
+        if (!Beschikbaar)
+        {
+            return Fout ?? "Database niet beschikbaar";
+        }
+
+        try
+        {
+            await using var verbinding = new SqlConnection(Verbinding);
+            await verbinding.OpenAsync();
+            await using var opdracht = new SqlCommand(opdrachtInfo.Sql, verbinding);
+            foreach (var (naam, waarde) in opdrachtInfo.Parameters)
+            {
+                opdracht.Parameters.AddWithValue(naam, waarde);
+            }
+
+            await opdracht.ExecuteNonQueryAsync();
+            return null;
+        }
+        catch (Exception fout)
+        {
+            return fout.Message;
+        }
+    }
 
     /// <summary>Maakt de database aan en brengt hem bij. Gooit nooit: lukt het niet, dan is <see cref="Beschikbaar"/> false.</summary>
     public static async Task VoorbereidenAsync()

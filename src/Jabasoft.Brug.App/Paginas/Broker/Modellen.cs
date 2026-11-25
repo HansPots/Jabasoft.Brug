@@ -34,6 +34,15 @@ public sealed class Modellen : BrokerPagina
     private static readonly GridLength KolomTaken = new(230);
     private static readonly GridLength KolomSoort = new(140);
     private static readonly GridLength KolomTokens = new(90);
+    private static readonly GridLength KolomKwaliteit = new(100);
+
+    /// <summary>Zelf ingestelde kwaliteit per model, en eigen favorieten (naam in kleine letters, onderdeel).</summary>
+    private Dictionary<string, int> _sterren = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<(string Naam, string Onderdeel)> _favorieten = [];
+
+    /// <summary>De kwaliteit van een model: de eigen waarde als die er is, anders de schatting.</summary>
+    private (int Aantal, bool Eigen) Kwaliteit(string naam) =>
+        _sterren.TryGetValue(naam, out var eigen) ? (eigen, true) : (Modelsterren.Schat(naam), false);
 
     // Wat er het laatst is opgehaald; een klik op een regel tekent opnieuw zonder alles op te halen.
     private Dictionary<string, Modelinfo> _info = new(StringComparer.OrdinalIgnoreCase);
@@ -61,6 +70,7 @@ public sealed class Modellen : BrokerPagina
         {
             var beschrijvingen = await BrugDatabase.ModellenAsync();
             _info = beschrijvingen.ToDictionary(m => m.Naam, StringComparer.OrdinalIgnoreCase);
+            (_sterren, _favorieten) = await BrugDatabase.SterrenAsync();
             _beschrijvingenBinnen = true;
             Teken();
         }
@@ -196,7 +206,8 @@ public sealed class Modellen : BrokerPagina
                 _taken.GetValueOrDefault(gekozen) ?? [],
                 _verborgen.Contains(gekozen),
                 !_serverGelukt || _opServer.Contains(gekozen),
-                _tokens.GetValueOrDefault(gekozen))
+                _tokens.GetValueOrDefault(gekozen),
+                SterrenBlok(gekozen))
             {
                 VerticalAlignment = VerticalAlignment.Top,
             };
@@ -215,6 +226,134 @@ public sealed class Modellen : BrokerPagina
         Lijf.Children.Add(raster);
     }
 
+    /// <summary>
+    /// Kwaliteit en sterren per onderdeel in het detail. Kwaliteit: klik op de
+    /// n-de ster om n sterren te geven (oranje = zelf ingesteld); "Schatting"
+    /// zet hem terug (lila = geschat uit de grootte). Per onderdeel: lila ster =
+    /// samen vastgesteld (reden in de tooltip), oranje ster = jouw favoriet -
+    /// klikken zet of haalt je favoriet.
+    /// </summary>
+    private StackPanel SterrenBlok(string naam)
+    {
+        var (aantal, eigen) = Kwaliteit(naam);
+        var blok = new StackPanel { Spacing = 6 };
+
+        blok.Children.Add(Bouw.Tekst("KWALITEIT", "LabelStijl"));
+        var rij = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+        for (var n = 1; n <= 5; n++)
+        {
+            var waarde = n;
+            var ster = SterKnop(n <= aantal ? "★" : "☆", n <= aantal ? (eigen ? "AccentBrush" : "BorderBrush") : "TextMutedBrush",
+                $"{waarde} van 5 sterren geven");
+            ster.Click += async (_, _) => await ZetKwaliteitAsync(naam, waarde);
+            rij.Children.Add(ster);
+        }
+
+        var uitleg = Bouw.Tekst(eigen ? "zelf ingesteld" : "geschat uit de grootte", "LabelStijl");
+        uitleg.VerticalAlignment = VerticalAlignment.Center;
+        uitleg.Margin = new Thickness(12, 0, 12, 0);
+        rij.Children.Add(uitleg);
+        if (eigen)
+        {
+            rij.Children.Add(Bouw.Knop("Schatting", async (_, _) => await ZetKwaliteitAsync(naam, null), "TextMutedBrush"));
+        }
+
+        blok.Children.Add(rij);
+
+        blok.Children.Add(Bouw.Tekst("PER ONDERDEEL", "LabelStijl"));
+        var onderdelen = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 18 };
+        foreach (var (sleutel, onderdeelNaam) in Modelsterren.Onderdelen)
+        {
+            var vastgesteld = Modelsterren.Vastgesteld(naam, sleutel);
+            var favoriet = _favorieten.Contains((naam.ToLowerInvariant(), sleutel));
+
+            var stuk = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+            if (vastgesteld.Count > 0)
+            {
+                var lila = Bouw.Tekst("★", "LabelStijl");
+                lila.Foreground = Bouw.Kleur("BorderBrush");
+                lila.FontSize = 18;
+                lila.VerticalAlignment = VerticalAlignment.Center;
+                ToolTipService.SetToolTip(lila, new TextBlock
+                {
+                    Text = $"Samen vastgesteld voor {onderdeelNaam}:\n\n{string.Join("\n\n", vastgesteld.Select(a => a.Reden))}",
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 520,
+                });
+                stuk.Children.Add(lila);
+            }
+
+            var eigenSter = SterKnop(favoriet ? "★" : "☆", favoriet ? "AccentBrush" : "TextMutedBrush",
+                favoriet ? $"Jouw favoriet voor {onderdeelNaam} - klik om weg te halen" : $"Klik om favoriet te maken voor {onderdeelNaam}");
+            eigenSter.Click += async (_, _) => await ZetFavorietAsync(naam, sleutel, !favoriet);
+            stuk.Children.Add(eigenSter);
+
+            var label = Bouw.Tekst(onderdeelNaam);
+            label.VerticalAlignment = VerticalAlignment.Center;
+            stuk.Children.Add(label);
+            onderdelen.Children.Add(stuk);
+        }
+
+        blok.Children.Add(onderdelen);
+        return blok;
+    }
+
+    private static Button SterKnop(string teken, string kleur, string tip)
+    {
+        var knop = new Button
+        {
+            Content = new TextBlock { Text = teken, FontSize = 18, Foreground = Bouw.Kleur(kleur) },
+            Background = null,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(2, 0, 2, 0),
+            MinWidth = 0,
+        };
+        ToolTipService.SetToolTip(knop, tip);
+        return knop;
+    }
+
+    private async Task ZetKwaliteitAsync(string naam, int? sterren)
+    {
+        var fout = await BrugDatabase.ZetSterrenAsync(naam, sterren);
+        if (fout is not null)
+        {
+            App.AppLog.Schrijf("brug", $"Kwaliteit niet bewaard: {fout}");
+            return;
+        }
+
+        if (sterren is { } aantal)
+        {
+            _sterren[naam] = aantal;
+        }
+        else
+        {
+            _sterren.Remove(naam);
+        }
+
+        Teken();
+    }
+
+    private async Task ZetFavorietAsync(string naam, string onderdeel, bool favoriet)
+    {
+        var fout = await BrugDatabase.ZetFavorietAsync(naam, onderdeel, favoriet);
+        if (fout is not null)
+        {
+            App.AppLog.Schrijf("brug", $"Favoriet niet bewaard: {fout}");
+            return;
+        }
+
+        if (favoriet)
+        {
+            _favorieten.Add((naam.ToLowerInvariant(), onderdeel));
+        }
+        else
+        {
+            _favorieten.Remove((naam.ToLowerInvariant(), onderdeel));
+        }
+
+        Teken();
+    }
+
     private List<string> Leden(Func<string, bool> hoort) =>
         [.. _namen.Where(hoort).OrderBy(n => _info.TryGetValue(n, out var i) ? i.Soort : "~").ThenBy(n => n)];
 
@@ -228,6 +367,7 @@ public sealed class Modellen : BrokerPagina
         var rij = new Grid { ColumnSpacing = 12 };
         rij.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         rij.ColumnDefinitions.Add(new ColumnDefinition { Width = KolomTaken });
+        rij.ColumnDefinitions.Add(new ColumnDefinition { Width = KolomKwaliteit });
         rij.ColumnDefinitions.Add(new ColumnDefinition { Width = KolomSoort });
         rij.ColumnDefinitions.Add(new ColumnDefinition { Width = KolomTokens });
 
@@ -246,17 +386,26 @@ public sealed class Modellen : BrokerPagina
         Grid.SetColumn(pillen, 1);
         rij.Children.Add(pillen);
 
+        // Kwaliteit: zelf ingesteld = oranje, geschat uit de grootte = lila (op de gekozen regel zwart).
+        var (aantal, eigen) = Kwaliteit(naam);
+        var sterren = Bouw.Tekst(Modelsterren.Tekst(aantal), "LabelStijl");
+        sterren.Foreground = Bouw.Kleur(gekozen ? "AccentForegroundBrush" : eigen ? "AccentBrush" : "BorderBrush");
+        sterren.VerticalAlignment = VerticalAlignment.Center;
+        ToolTipService.SetToolTip(sterren, eigen ? "Kwaliteit: zelf ingesteld" : "Kwaliteit: geschat uit de grootte");
+        Grid.SetColumn(sterren, 2);
+        rij.Children.Add(sterren);
+
         var soort = Bouw.Tekst(_info.TryGetValue(naam, out var info) ? info.Soort.ToLower(Bouw.Nl) : "—", "LabelStijl");
         soort.Foreground = bijKleur;
         soort.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(soort, 2);
+        Grid.SetColumn(soort, 3);
         rij.Children.Add(soort);
 
         var tokens = Bouw.Tekst(_tokens.TryGetValue(naam, out var t) ? Bouw.Kort(t.TotalTokens) : "—", "LabelStijl");
         tokens.Foreground = bijKleur;
         tokens.HorizontalAlignment = HorizontalAlignment.Right;
         tokens.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(tokens, 3);
+        Grid.SetColumn(tokens, 4);
         rij.Children.Add(tokens);
 
         var knop = new Button
@@ -292,9 +441,11 @@ public sealed class Modellen : BrokerPagina
         private readonly bool _verborgen;
         private readonly bool _opServer;
         private readonly TokenModel? _tokens;
+        private readonly UIElement? _sterren;
 
-        public Modelkaart(string naam, Modelinfo? info, IReadOnlyList<string> taken, bool verborgen, bool opServer, TokenModel? tokens)
+        public Modelkaart(string naam, Modelinfo? info, IReadOnlyList<string> taken, bool verborgen, bool opServer, TokenModel? tokens, UIElement? sterren = null)
         {
+            _sterren = sterren;
             _naam = naam;
             _info = info;
             _taken = taken;
@@ -352,6 +503,11 @@ public sealed class Modellen : BrokerPagina
                 Bouw.Zet(velden, Bouw.Veld("Maker", _info.Maker), 0, 1);
                 Bouw.Zet(velden, Bouw.Veld("Tokens", _tokens is null ? "—" : $"{Bouw.Getal(_tokens.TotalTokens)} · {Bouw.Getal(_tokens.Calls)}×"), 0, 2);
                 inhoud.Children.Add(velden);
+            }
+
+            if (_sterren is not null)
+            {
+                inhoud.Children.Add(_sterren);
             }
 
             inhoud.Children.Add(Bouw.Knop(_info is null ? "Beschrijven" : "Bewerken", (_, _) => ToonBewerken(), "BorderBrush"));
