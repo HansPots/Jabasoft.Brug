@@ -149,11 +149,19 @@ public static class BrokerApi
             var waarde = await werk();
             return new Meting<T>(waarde, klok.Elapsed, null);
         }
+        catch (HttpRequestException fout) when (fout.StatusCode is { } code)
+        {
+            // De broker antwoordde wel, maar met een fout: dat is iets anders dan onbereikbaar.
+            return new Meting<T>(default, klok.Elapsed, $"de broker gaf een fout ({(int)code} {code})");
+        }
         catch (Exception fout)
         {
-            return new Meting<T>(default, klok.Elapsed, fout is HttpRequestException or TaskCanceledException
-                ? "Broker niet bereikbaar"
-                : fout.Message);
+            return new Meting<T>(default, klok.Elapsed, fout switch
+            {
+                HttpRequestException => "Broker niet bereikbaar",
+                TaskCanceledException => "de broker gaf te laat antwoord",
+                _ => fout.Message,
+            });
         }
     }
 }
