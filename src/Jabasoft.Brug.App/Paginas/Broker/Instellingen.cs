@@ -116,15 +116,15 @@ public sealed class Instellingen : BrokerPagina
         ];
         (int Seconden, string Naam)[] ontladen =
         [
-            (60, "Na 1 minuut stilstand"),
-            (300, "Na 5 minuten stilstand (standaard)"),
+            (60, "Na 1 minuut stilstand (standaard)"),
+            (300, "Na 5 minuten stilstand"),
             (900, "Na 15 minuten stilstand"),
             (3600, "Na een uur stilstand"),
             (0, "Nooit"),
         ];
 
         var huidigModel = Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurBeeldmodel, "realvis");
-        var huidigOntladen = Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, 300);
+        var huidigOntladen = Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, 60);
         var model = Keuze("Standaard beeldmodel", modellen.Select(m => m.Naam), modellen.FirstOrDefault(m => m.Tag == huidigModel).Naam ?? modellen[0].Naam, bewerkbaar: false);
         var stoppen = Keuze("Beeldservice geeft het geheugen terug", ontladen.Select(o => o.Naam), ontladen.FirstOrDefault(o => o.Seconden == huidigOntladen).Naam ?? ontladen[1].Naam, bewerkbaar: false);
 
@@ -134,7 +134,7 @@ public sealed class Instellingen : BrokerPagina
             var tag = modellen.First(m => m.Naam == (model.SelectedItem as string)).Tag;
             var seconden = ontladen.First(o => o.Naam == (stoppen.SelectedItem as string)).Seconden;
             var veranderd = tag != Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurBeeldmodel, "realvis")
-                            || seconden != Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, 300);
+                            || seconden != Layout.Voorkeuren.Lees(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, 60);
             Layout.Voorkeuren.Bewaar(Modules.ImageFunn.Beeldservice.VoorkeurBeeldmodel, tag);
             Layout.Voorkeuren.Bewaar(Modules.ImageFunn.Beeldservice.VoorkeurOntladenNa, seconden.ToString(Bouw.Nl));
 
