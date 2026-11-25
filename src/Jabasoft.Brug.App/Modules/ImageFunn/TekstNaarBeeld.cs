@@ -11,7 +11,7 @@ namespace Jabasoft.Brug.App.Modules.ImageFunn;
 /// ImageFunn &gt; Tekst naar beeld: een beeld maken uit een omschrijving, en het daarna bijsturen.
 ///
 /// Links de opdracht (omschrijving, stijl, beeldmodel, formaat, seed), rechts
-/// het gemaakte beeld met rechts ernaast het bijsturen (zie TekstNaarBeeld.Bijsturen.cs),
+/// het gemaakte beeld met rechts ernaast de beeldinfo en het bijsturen (zie TekstNaarBeeld.Bijsturen.cs),
 /// onderaan de galerij. Het beeld kan door naar Beeld naar video, Beeld naar
 /// tekst en Film maken. De beeldservice doet het werk (<see cref="Beeldservice"/>).
 ///
@@ -56,6 +56,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
     private readonly Tekenlaag _tekenlaag = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top };
     private readonly TextBlock _geenBeeld = Bouw.Melding("Nog geen beeld. Maak er een, of kies er een uit de galerij.");
     private readonly TextBlock _beeldInfo = Bouw.Melding("");
+    private Border _infopaneel = null!;
     private readonly Button _inMap;
     private readonly Button _verwijder;
     private readonly Button _naarVideo;
@@ -134,22 +135,27 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
             Children =
             {
                 beeldvlak,
-                _beeldInfo,
                 Onderdelen.Knoppen(_naarVideo, _naarTekst, _naarFilm, _inMap, _verwijder),
             },
         };
 
-        // Het bijsturen staat in een eigen kader rechts naast de foto; zonder beeld is het verborgen en krijgt de foto
-        // (of de melding "nog geen beeld") de hele breedte.
-        var bijsturen = MaakBijstuurpaneel();
-        bijsturen.Width = 440;
-        bijsturen.VerticalAlignment = VerticalAlignment.Top;
+        // Rechts naast de foto: de beeldinfo (formaat, model, seed, prompt) in een eigen kader, daaronder het bijsturen.
+        // Zonder beeld zijn beide verborgen en krijgt de foto (of de melding "nog geen beeld") de hele breedte.
+        _beeldInfo.IsTextSelectionEnabled = true;
+        _infopaneel = new Border { Visibility = Visibility.Collapsed, Child = Bouw.Paneel("Beeldinfo", _beeldInfo) };
+        var rechterkolom = new StackPanel
+        {
+            Width = 440,
+            Spacing = 24,
+            VerticalAlignment = VerticalAlignment.Top,
+            Children = { _infopaneel, MaakBijstuurpaneel() },
+        };
         var beeld = new Grid { ColumnSpacing = 24 };
         beeld.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         beeld.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetColumn(bijsturen, 1);
+        Grid.SetColumn(rechterkolom, 1);
         beeld.Children.Add(beeldkolom);
-        beeld.Children.Add(bijsturen);
+        beeld.Children.Add(rechterkolom);
 
         // ---- galerij
         var galerij = new StackPanel
@@ -424,7 +430,8 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         _tekenlaag.Wis();
         _beeldInfo.Text = taak is null
             ? prompt
-            : $"{taak.Breedte} × {taak.Hoogte} · {ModelNaam(taak.Beeldmodel)} · seed {taak.Seed}\n{prompt}";
+            : $"{taak.Breedte} × {taak.Hoogte} · {ModelNaam(taak.Beeldmodel)} · seed {taak.Seed}\n\n{prompt}";
+        _infopaneel.Visibility = Visibility.Visible;
         ZetBeeldknoppen(true);
         ZetSessie(bestand, prompt);
     }
@@ -469,6 +476,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         _bestand = _prompt = null;
         _beeld.Source = null;
         _beeldInfo.Text = "";
+        _infopaneel.Visibility = Visibility.Collapsed;
         _geenBeeld.Visibility = Visibility.Visible;
         ZetBeeldknoppen(false);
         WisSessie();
