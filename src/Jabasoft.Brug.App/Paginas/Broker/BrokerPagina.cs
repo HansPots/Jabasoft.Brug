@@ -11,6 +11,13 @@ namespace Jabasoft.Brug.App.Paginas.Broker;
 ///
 /// De inhoud wordt in code opgebouwd (zie <see cref="Bouw"/>): het zijn
 /// lijsten waarvan de lengte pas bekend is als de broker geantwoord heeft.
+///
+/// Afspraak voor elke pagina (ook nieuwe): asynchroon opbouwen. Teken
+/// meteen de opbouw met een "Ophalen…"-plek per onderdeel, haal de bronnen
+/// tegelijk op (niet na elkaar), en vul elk onderdeel zodra zijn eigen bron
+/// binnen is. Gegevens die altijd klaar moeten staan, houdt een dienst op de
+/// achtergrond bij (zoals App.Wachtrij en App.Gezondheid), zodat de pagina
+/// bij openen niets hoeft af te wachten.
 /// </summary>
 public abstract class BrokerPagina : UserControl, IVerversbaar
 {

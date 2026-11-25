@@ -27,6 +27,9 @@ public partial class App : Application
     /// <summary>De wachtrij van de broker, elke seconde, ook als Nu bezig dicht is.</summary>
     public static Wachtrijvolger Wachtrij { get; } = new();
 
+    /// <summary>De gezondheid van broker, databases, AI-server en beeldservice, elke 30 s op de achtergrond.</summary>
+    public static Gezondheidsbewaking Gezondheid { get; } = new();
+
     public App()
     {
         InitializeComponent();
@@ -51,6 +54,7 @@ public partial class App : Application
 
         Meter.Start();
         Wachtrij.Start();
+        Gezondheid.Start();
 
         // Eigen database (JabasoftBrug) op de achtergrond klaarzetten; de
         // schermen werken ook zonder, met de ingebouwde modelbeschrijvingen.
@@ -66,6 +70,7 @@ public partial class App : Application
             _brokerLezer?.Dispose();
             Meter.Dispose();
             Wachtrij.Dispose();
+            Gezondheid.Dispose();
         };
         _venster.Activate();
     }

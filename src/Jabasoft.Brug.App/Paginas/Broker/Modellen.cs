@@ -49,47 +49,84 @@ public sealed class Modellen : BrokerPagina
 
     protected override async Task LaadAsync()
     {
-        var beschrijvingenTaak = BrugDatabase.ModellenAsync();
-        var serverTaak = BrokerApi.ServerModellenAsync();
-        var instellingenTaak = BrokerApi.InstellingenAsync();
-        var verbruikTaak = BrokerApi.TokenModellenAsync();
-        await Task.WhenAll(beschrijvingenTaak, serverTaak, instellingenTaak, verbruikTaak);
-
-        var beschrijvingen = beschrijvingenTaak.Result;
-        var server = serverTaak.Result;
-        var serverActief = Lees(instellingenTaak.Result.Waarde);
-
-        _serverGelukt = server.Gelukt;
-        _serverFout = server.Fout;
-        _opServer = server.Waarde?.Models ?? [];
-        _verborgen = (serverActief?["verborgen"] as JsonArray)?.Select(n => n?.GetValue<string>() ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
-        _tokens = (verbruikTaak.Result.Waarde ?? []).GroupBy(m => m.Model ?? "").ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-        _info = beschrijvingen.ToDictionary(m => m.Naam, StringComparer.OrdinalIgnoreCase);
-        _namen = [.. _opServer.Concat(beschrijvingen.Select(m => m.Naam)).Distinct(StringComparer.OrdinalIgnoreCase)];
-
-        _taken = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (veld, taak) in Taken)
+        // Vier losse bronnen, tegelijk opgehaald. Na elke bron die binnen is
+        // wordt het scherm opnieuw getekend: de lijst staat er zodra de
+        // beschrijvingen er zijn, taken en tokens vullen zich daarna aan.
+        if (Lijf.Children.Count == 0)
         {
-            if (serverActief?[veld]?.GetValue<string>() is { Length: > 0 } model)
-            {
-                (_taken.TryGetValue(model, out var lijst) ? lijst : _taken[model] = []).Add(taak);
-            }
+            Teken();
         }
 
-        Teken();
+        async Task BeschrijvingenAsync()
+        {
+            var beschrijvingen = await BrugDatabase.ModellenAsync();
+            _info = beschrijvingen.ToDictionary(m => m.Naam, StringComparer.OrdinalIgnoreCase);
+            _beschrijvingenBinnen = true;
+            Teken();
+        }
+
+        async Task ServerAsync()
+        {
+            var server = await BrokerApi.ServerModellenAsync();
+            _serverGelukt = server.Gelukt;
+            _serverFout = server.Fout;
+            _opServer = server.Waarde?.Models ?? [];
+            _serverBinnen = true;
+            Teken();
+        }
+
+        async Task InstellingenAsync()
+        {
+            var serverActief = Lees((await BrokerApi.InstellingenAsync()).Waarde);
+            _verborgen = (serverActief?["verborgen"] as JsonArray)?.Select(n => n?.GetValue<string>() ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
+            var taken = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (veld, taak) in Taken)
+            {
+                if (serverActief?[veld]?.GetValue<string>() is { Length: > 0 } model)
+                {
+                    (taken.TryGetValue(model, out var lijst) ? lijst : taken[model] = []).Add(taak);
+                }
+            }
+
+            _taken = taken;
+            _takenBinnen = true;
+            Teken();
+        }
+
+        async Task VerbruikAsync()
+        {
+            var verbruik = await BrokerApi.TokenModellenAsync();
+            _tokens = (verbruik.Waarde ?? []).GroupBy(m => m.Model ?? "").ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            Teken();
+        }
+
+        await Task.WhenAll(BeschrijvingenAsync(), ServerAsync(), InstellingenAsync(), VerbruikAsync());
     }
+
+    // Welke bronnen al binnen zijn; zolang niet, toont het scherm "…" in plaats van een fout.
+    private bool _beschrijvingenBinnen;
+    private bool _serverBinnen;
+    private bool _takenBinnen;
 
     /// <summary>Links de lijst per groep, rechts het detail van het gekozen model.</summary>
     private void Teken()
     {
+        _namen = [.. _opServer.Concat(_info.Keys).Distinct(StringComparer.OrdinalIgnoreCase)];
+
         Lijf.Children.Clear();
         Lijf.Children.Add(Bouw.Band(
-            ("Op de server", _serverGelukt ? _opServer.Count.ToString(Bouw.Nl) : "—"),
-            ("Met een taak", _taken.Count.ToString(Bouw.Nl)),
-            ("Verborgen", _verborgen.Count.ToString(Bouw.Nl)),
-            ("Beschreven", _namen.Count(_info.ContainsKey).ToString(Bouw.Nl))));
+            ("Op de server", !_serverBinnen ? "…" : _serverGelukt ? _opServer.Count.ToString(Bouw.Nl) : "—"),
+            ("Met een taak", _takenBinnen ? _taken.Count.ToString(Bouw.Nl) : "…"),
+            ("Verborgen", _takenBinnen ? _verborgen.Count.ToString(Bouw.Nl) : "…"),
+            ("Beschreven", _beschrijvingenBinnen ? _namen.Count(_info.ContainsKey).ToString(Bouw.Nl) : "…")));
 
-        if (!_serverGelukt)
+        if (_namen.Count == 0)
+        {
+            Lijf.Children.Add(Bouw.Meldingpaneel("Modellen", "Ophalen…"));
+            return;
+        }
+
+        if (_serverBinnen && !_serverGelukt)
         {
             Lijf.Children.Add(Bouw.Meldingpaneel("AI-server", $"De modellijst is niet op te halen ({_serverFout}). Hieronder de beschreven modellen."));
         }
@@ -108,7 +145,8 @@ public sealed class Modellen : BrokerPagina
         };
 
         // Bij het openen: het eerste model dat in gebruik is (of anders het eerste dat er is).
-        if (_gekozen is null || !_namen.Contains(_gekozen, StringComparer.OrdinalIgnoreCase))
+        // Pas kiezen als bekend is welke modellen een taak hebben, anders zou het eerste "beschikbare" winnen.
+        if (_takenBinnen && (_gekozen is null || !_namen.Contains(_gekozen, StringComparer.OrdinalIgnoreCase)))
         {
             _gekozen = groepen.SelectMany(g => g.Leden).FirstOrDefault();
         }
@@ -165,6 +203,13 @@ public sealed class Modellen : BrokerPagina
             detail.Bewaard += async (_, _) => await VerversAsync();
             Grid.SetColumn(detail, 1);
             raster.Children.Add(detail);
+        }
+        else
+        {
+            var wacht = Bouw.Groep("Model", "", Bouw.Melding("Ophalen…"), "AccentBrushDark");
+            wacht.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(wacht, 1);
+            raster.Children.Add(wacht);
         }
 
         Lijf.Children.Add(raster);
