@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Jabasoft.Brug.App.Layout;
 using Jabasoft.Brug.App.Paginas;
 using Microsoft.UI.Xaml;
@@ -9,24 +8,21 @@ using Microsoft.UI.Xaml.Media.Imaging;
 namespace Jabasoft.Brug.App.Modules.ImageFunn;
 
 /// <summary>
-/// ImageFunn &gt; Tekst naar beeld: een beeld maken uit een omschrijving.
+/// ImageFunn &gt; Tekst naar beeld: een beeld maken uit een omschrijving, en het daarna bijsturen.
 ///
 /// Links de opdracht (omschrijving, stijl, beeldmodel, formaat, seed), rechts
-/// het gemaakte beeld, onderaan de galerij met alles wat eerder gemaakt is.
-/// De beeldservice doet het werk (zie <see cref="Beeldservice"/>); dit scherm
-/// start de opdracht, volgt de voortgang en toont het resultaat.
+/// het gemaakte beeld met eronder het bijsturen (zie TekstNaarBeeld.Bijsturen.cs),
+/// onderaan de galerij. Het beeld kan door naar Beeld naar video, Beeld naar
+/// tekst en Film maken. De beeldservice doet het werk (<see cref="Beeldservice"/>).
 ///
 /// Opbouw volgens de afspraak voor elke pagina: alles staat er meteen, de
 /// galerij toont "Ophalen…" en vult zich zodra de service antwoordt.
-/// Nog niet overgenomen uit de oude app: bijsturen (tekenen op het beeld),
-/// automatisch vertalen via het chatmodel en doorgeven naar de andere
-/// schermen; die volgen in een volgende stap.
 /// </summary>
-public sealed class TekstNaarBeeld : UserControl, IVerversbaar
+public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvangtTekst
 {
     private static readonly TimeSpan Peilen = TimeSpan.FromSeconds(0.7);
 
-    private static readonly (string Tag, string Naam)[] Beeldmodellen =
+    public static readonly (string Tag, string Naam)[] Beeldmodellen =
     [
         ("realvis", "RealVisXL - fotorealistisch"),
         ("juggernaut", "Juggernaut XL - fotorealistisch"),
@@ -46,24 +42,31 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
     private readonly ComboBox _model;
     private readonly ComboBox _formaat;
     private readonly TextBox _seed;
+    private readonly CheckBox _verbeter = Onderdelen.Verbetervinkje("tekstnaarbeeld");
     private readonly Button _maak;
     private readonly Button _letterlijk;
     private readonly Button _stop;
-    private readonly ProgressBar _voortgang;
-    private readonly TextBlock _status;
+    private readonly ProgressBar _voortgang = Onderdelen.Voortgang();
+    private readonly TextBlock _status = Bouw.Melding("Klaar voor een opdracht.");
 
-    private readonly Image _beeld;
-    private readonly TextBlock _geenBeeld;
-    private readonly TextBlock _beeldInfo;
+    private readonly Image _beeld = new() { Stretch = Stretch.Uniform, MaxHeight = 720, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top };
+    private readonly Tekenlaag _tekenlaag = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top };
+    private readonly TextBlock _geenBeeld = Bouw.Melding("Nog geen beeld. Maak er een, of kies er een uit de galerij.");
+    private readonly TextBlock _beeldInfo = Bouw.Melding("");
     private readonly Button _inMap;
     private readonly Button _verwijder;
+    private readonly Button _naarVideo;
+    private readonly Button _naarTekst;
+    private readonly Button _naarFilm;
 
-    private readonly StackPanel _galerij;
-    private readonly TextBlock _galerijMelding;
+    private readonly StackPanel _galerij = new() { Orientation = Orientation.Horizontal, Spacing = 10 };
+    private readonly TextBlock _galerijMelding = Bouw.Melding("Ophalen…");
     private readonly Dictionary<string, BitmapImage> _miniaturen = [];
     private string? _galerijHandtekening;
 
-    private BeeldJobStatus? _getoond;
+    /// <summary>Het bestand en de prompt van het beeld dat nu groot staat.</summary>
+    private string? _bestand;
+    private string? _prompt;
     private string? _lopend;
 
     public TekstNaarBeeld()
@@ -77,20 +80,17 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
             TextWrapping = TextWrapping.Wrap,
             Height = 170,
         };
-        _stijl = Keuze("Stijl", Beeldstijl.Alle.Select(s => (s.Tag, s.Naam)), "realistisch");
-        _model = Keuze("Beeldmodel", Beeldmodellen, Voorkeuren.Lees(Beeldservice.VoorkeurBeeldmodel, "realvis"));
-        _formaat = Keuze("Formaat", Formaten, "1024x1024");
+        _stijl = Onderdelen.Keuze("Stijl", Beeldstijl.Alle.Select(s => (s.Tag, s.Naam)), "realistisch");
+        _model = Onderdelen.Keuze("Beeldmodel", Beeldmodellen, Voorkeuren.Lees(Beeldservice.VoorkeurBeeldmodel, "realvis"));
+        _formaat = Onderdelen.Keuze("Formaat", Formaten, "1024x1024");
         _seed = new TextBox { Header = "Seed (leeg = willekeurig)", PlaceholderText = "willekeurig" };
         ToolTipService.SetToolTip(_seed, "Dezelfde omschrijving met dezelfde seed geeft hetzelfde beeld.");
 
         _maak = Bouw.Knop("Maak beeld", async (_, _) => await MaakAsync(letterlijk: false));
         _letterlijk = Bouw.Knop("Letterlijk", async (_, _) => await MaakAsync(letterlijk: true), "AccentBrushLight");
-        ToolTipService.SetToolTip(_letterlijk, "Je tekst gaat precies zo naar het model, zonder stijltekst erbij.");
+        ToolTipService.SetToolTip(_letterlijk, "Je tekst gaat precies zo naar het model: niet vertaald of verbeterd, en zonder stijltekst erbij.");
         _stop = Bouw.Knop("Stop", async (_, _) => await StopAsync(), "TextMutedBrush");
         _stop.IsEnabled = false;
-
-        _voortgang = new ProgressBar { Maximum = 1, Foreground = Bouw.Kleur("AccentBrush"), Visibility = Visibility.Collapsed };
-        _status = Bouw.Melding("Klaar voor een opdracht.");
 
         var keuzes = Bouw.Kolommen(2, 16);
         Bouw.Zet(keuzes, _stijl, 0, 0);
@@ -101,27 +101,27 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
         var opdracht = new StackPanel
         {
             Spacing = 16,
-            Children =
-            {
-                _omschrijving,
-                keuzes,
-                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { _maak, _letterlijk, _stop } },
-                _voortgang,
-                _status,
-            },
+            Children = { _omschrijving, keuzes, _verbeter, Onderdelen.Knoppen(_maak, _letterlijk, _stop), _voortgang, _status },
         };
 
-        // ---- beeld
-        _beeld = new Image { Stretch = Stretch.Uniform, MaxHeight = 720, HorizontalAlignment = HorizontalAlignment.Center };
-        _geenBeeld = Bouw.Melding("Nog geen beeld. Maak er een, of kies er een uit de galerij.");
-        _beeldInfo = Bouw.Melding("");
-        _inMap = Bouw.Knop("Toon in map", (_, _) => ToonInMap());
+        // ---- beeld (de tekenlaag ligt precies over het getoonde beeld, voor het aanwijzen van een gebied)
+        _beeld.SizeChanged += (_, _) =>
+        {
+            _tekenlaag.Width = _beeld.ActualWidth;
+            _tekenlaag.Height = _beeld.ActualHeight;
+        };
+        _inMap = Bouw.Knop("Toon in map", (_, _) => Onderdelen.ToonInMap(_bestand));
         _verwijder = Bouw.Knop("Verwijderen", async (_, _) => await VerwijderAsync(), "TextMutedBrush");
-        _inMap.IsEnabled = _verwijder.IsEnabled = false;
+        _naarVideo = Bouw.Knop("Laat bewegen", (_, _) => Geef("imagefunn.beeldnaarvideo"), "AccentBrushLight");
+        _naarTekst = Bouw.Knop("Beschrijf", (_, _) => Geef("imagefunn.beeldnaartekst"), "AccentBrushLight");
+        _naarFilm = Bouw.Knop("Gebruik in film", (_, _) => Geef("imagefunn.film"), "AccentBrushLight");
+        ToolTipService.SetToolTip(_naarFilm, "Voegt dit beeld toe aan de cast van Film maken, als speler, plek of voorwerp.");
+        ZetBeeldknoppen(false);
 
         var beeldvlak = new Grid { MinHeight = 420 };
         beeldvlak.Children.Add(_geenBeeld);
         beeldvlak.Children.Add(_beeld);
+        beeldvlak.Children.Add(_tekenlaag);
         var beeld = new StackPanel
         {
             Spacing = 12,
@@ -129,13 +129,12 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
             {
                 beeldvlak,
                 _beeldInfo,
-                new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = { _inMap, _verwijder } },
+                Onderdelen.Knoppen(_naarVideo, _naarTekst, _naarFilm, _inMap, _verwijder),
+                MaakBijstuurpaneel(),
             },
         };
 
         // ---- galerij
-        _galerijMelding = Bouw.Melding("Ophalen…");
-        _galerij = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
         var galerij = new StackPanel
         {
             Spacing = 8,
@@ -156,10 +155,9 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
         var boven = new Grid { ColumnSpacing = 24 };
         boven.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(480) });
         boven.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var links = Bouw.Paneel("Opdracht", opdracht);
         var rechts = Bouw.Paneel("Beeld", beeld);
         Grid.SetColumn(rechts, 1);
-        boven.Children.Add(links);
+        boven.Children.Add(Bouw.Paneel("Opdracht", opdracht));
         boven.Children.Add(rechts);
 
         Content = new ScrollViewer
@@ -174,6 +172,13 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
         };
 
         Loaded += async (_, _) => await VerversAsync();
+    }
+
+    /// <summary>Een prompt van een ander scherm (bijvoorbeeld Beeld naar tekst › Maak er een beeld van).</summary>
+    public void Ontvang(string tekst)
+    {
+        _omschrijving.Text = tekst;
+        _status.Text = "Prompt overgenomen - pas hem aan en druk op Maak beeld.";
     }
 
     /// <summary>Haalt de galerij opnieuw op (ook via de verversknop in de actiebalk).</summary>
@@ -204,7 +209,7 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
 
     private async Task<Button> GalerijItemAsync(BeeldJobStatus taak)
     {
-        if (!_miniaturen.TryGetValue(taak.Bestand!, out var miniatuur) && await LaadAsync(taak.Bestand!, 220) is { } geladen)
+        if (!_miniaturen.TryGetValue(taak.Bestand!, out var miniatuur) && await Onderdelen.LaadBeeldAsync(taak.Bestand, 220) is { } geladen)
         {
             _miniaturen[taak.Bestand!] = miniatuur = geladen;
         }
@@ -218,7 +223,11 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
             Content = new Image { Source = miniatuur, Height = 110, Stretch = Stretch.Uniform },
         };
         ToolTipService.SetToolTip(knop, taak.Prompt);
-        knop.Click += async (_, _) => await ToonAsync(taak);
+        knop.Click += async (_, _) =>
+        {
+            await ToonAsync(taak.Bestand!, taak.Prompt, taak);
+            _omschrijving.Text = taak.Prompt;
+        };
         return knop;
     }
 
@@ -233,60 +242,86 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
             return;
         }
 
-        int? seed = null;
-        if (!string.IsNullOrWhiteSpace(_seed.Text))
+        if (!LeesSeed(out var seed))
         {
-            if (!int.TryParse(_seed.Text.Trim(), out var s) || s < 0)
-            {
-                _status.Text = "De seed moet een heel getal zijn, of leeg.";
-                return;
-            }
-
-            seed = s;
+            return;
         }
 
-        // De gekozen stijl komt vóór de omschrijving, met een eigen negatieve prompt. Letterlijk: niets erbij.
-        var stijl = Beeldstijl.Van(letterlijk ? "geen" : Gekozen(_stijl));
-        var prompt = stijl.MetStijl(tekst);
-        var formaat = Gekozen(_formaat).Split('x');
-
         ZetBezig(true);
-        _status.Text = "Opdracht starten…";
+        string? opmerking = null;
         try
         {
-            var melding = new Progress<string>(t => _status.Text = t);
-            _lopend = await Beeldservice.StartAsync(new BeeldOpdracht
+            // Het beeldmodel leest alleen Engels: eerst laten omschrijven door het chatmodel. Lukt dat niet, dan de eigen tekst.
+            var prompt = tekst;
+            if (!letterlijk && _verbeter.IsChecked == true)
             {
-                Beeldmodel = Gekozen(_model),
+                _status.Text = "Omschrijving vertalen en verbeteren…";
+                var (verbeterd, fout) = await Promptschrijver.VerbeterAsync(tekst);
+                if (verbeterd is not null)
+                {
+                    prompt = verbeterd;
+                    ToolTipService.SetToolTip(_omschrijving, $"Verstuurd naar het beeldmodel: {verbeterd}");
+                }
+                else
+                {
+                    opmerking = $"Verbeteren mislukt ({fout}), je eigen tekst is gebruikt. ";
+                }
+            }
+
+            // De gekozen stijl komt vóór de prompt, met een eigen negatieve prompt. Letterlijk: niets erbij.
+            var stijl = Beeldstijl.Van(letterlijk ? "geen" : Onderdelen.Gekozen(_stijl));
+            prompt = stijl.MetStijl(prompt);
+            var formaat = Onderdelen.Gekozen(_formaat).Split('x');
+
+            await VoerUitAsync(new BeeldOpdracht
+            {
+                Beeldmodel = Onderdelen.Gekozen(_model),
                 Prompt = prompt,
                 Negatief = stijl.Negatief,
                 Breedte = int.Parse(formaat[0], Bouw.Nl),
                 Hoogte = int.Parse(formaat[1], Bouw.Nl),
                 Seed = seed,
-            }, melding);
+            }, opmerking, async stand =>
+            {
+                await ToonAsync(stand.Bestand!, prompt, stand);
+                _status.Text = $"{opmerking}Klaar - seed {stand.Seed}.";
+            });
+        }
+        finally
+        {
+            ZetBezig(false);
+        }
+    }
+
+    /// <summary>Start een opdracht bij de beeldservice en volgt hem tot hij klaar of mislukt is.</summary>
+    private async Task VoerUitAsync(BeeldOpdracht opdracht, string? opmerking, Func<BeeldJobStatus, Task> klaar)
+    {
+        _status.Text = opmerking + "Opdracht starten…";
+        try
+        {
+            _lopend = await Beeldservice.StartAsync(opdracht, new Progress<string>(t => _status.Text = opmerking + t));
             _stop.IsEnabled = true;
-            App.AppLog.Schrijf("imagefunn", $"Beeld maken ({Gekozen(_model)})");
+            App.AppLog.Schrijf("imagefunn", $"{(opdracht.BronBeeld is null ? "Beeld maken" : "Beeld bijsturen")} ({opdracht.Beeldmodel})");
 
             while (true)
             {
                 var stand = await Beeldservice.StatusAsync(_lopend);
-                _status.Text = stand.Stap;
+                _status.Text = opmerking + stand.Stap;
                 _voortgang.Value = stand.Voortgang;
 
-                if (stand.IsKlaar)
+                if (stand.IsKlaar && stand.Bestand is not null)
                 {
-                    await ToonAsync(stand);
-                    _status.Text = $"Klaar - seed {stand.Seed}.";
+                    await klaar(stand);
                     App.AppLog.Schrijf("imagefunn", $"Beeld klaar (seed {stand.Seed})");
                     await VerversAsync();
-                    break;
+                    return;
                 }
 
                 if (stand.IsMislukt)
                 {
-                    _status.Text = stand.Eindmelding;
+                    _status.Text = opmerking + stand.Eindmelding;
                     App.AppLog.Schrijf("imagefunn", $"Beeld: {stand.Eindmelding}");
-                    break;
+                    return;
                 }
 
                 await Task.Delay(Peilen);
@@ -294,13 +329,31 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
         }
         catch (Exception fout)
         {
-            _status.Text = Beeldservice.Foutmelding(fout);
+            _status.Text = opmerking + Beeldservice.Foutmelding(fout);
         }
         finally
         {
             _lopend = null;
-            ZetBezig(false);
+            _stop.IsEnabled = false;
         }
+    }
+
+    private bool LeesSeed(out int? seed)
+    {
+        seed = null;
+        if (string.IsNullOrWhiteSpace(_seed.Text))
+        {
+            return true;
+        }
+
+        if (int.TryParse(_seed.Text.Trim(), out var s) && s >= 0)
+        {
+            seed = s;
+            return true;
+        }
+
+        _status.Text = "De seed moet een heel getal zijn, of leeg.";
+        return false;
     }
 
     private async Task StopAsync()
@@ -324,54 +377,55 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
 
     private void ZetBezig(bool bezig)
     {
-        _maak.IsEnabled = _letterlijk.IsEnabled = !bezig;
-        _stop.IsEnabled = false;
+        _maak.IsEnabled = _letterlijk.IsEnabled = _pasToe.IsEnabled = !bezig;
         _voortgang.Value = 0;
         _voortgang.Visibility = bezig ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    // ---------------------------------------------------------------- tonen en verwijderen
+    // ---------------------------------------------------------------- tonen, doorgeven en verwijderen
 
-    private async Task ToonAsync(BeeldJobStatus taak)
+    private async Task ToonAsync(string bestand, string prompt, BeeldJobStatus? taak = null)
     {
-        if (taak.Bestand is null || await LaadAsync(taak.Bestand, null) is not { } beeld)
+        if (await Onderdelen.LaadBeeldAsync(bestand) is not { } beeld)
         {
             return;
         }
 
-        _getoond = taak;
+        _bestand = bestand;
+        _prompt = prompt;
         _beeld.Source = beeld;
         _geenBeeld.Visibility = Visibility.Collapsed;
-        _beeldInfo.Text = $"{taak.Breedte} × {taak.Hoogte} · {ModelNaam(taak.Beeldmodel)} · seed {taak.Seed}\n{taak.Prompt}";
-        _inMap.IsEnabled = _verwijder.IsEnabled = true;
+        _tekenlaag.Wis();
+        _beeldInfo.Text = taak is null
+            ? prompt
+            : $"{taak.Breedte} × {taak.Hoogte} · {ModelNaam(taak.Beeldmodel)} · seed {taak.Seed}\n{prompt}";
+        ZetBeeldknoppen(true);
+        ZetSessie(bestand, prompt);
     }
 
-    private void ToonInMap()
+    private void ZetBeeldknoppen(bool aan)
     {
-        if (_getoond?.Bestand is { } bestand && File.Exists(bestand))
+        _inMap.IsEnabled = _verwijder.IsEnabled = _naarVideo.IsEnabled = _naarTekst.IsEnabled = _naarFilm.IsEnabled = aan;
+    }
+
+    private void Geef(string scherm)
+    {
+        if (_bestand is not null)
         {
-            Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{bestand}\"") { UseShellExecute = true });
+            Doorgeven.Naar(scherm, _bestand);
         }
     }
 
     private async Task VerwijderAsync()
     {
-        if (_getoond is not { } taak)
+        if (_bestand is null)
         {
             return;
         }
 
-        var kort = taak.Prompt.Length > 120 ? taak.Prompt[..120] + "…" : taak.Prompt;
-        var vraag = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "Dit beeld verwijderen?",
-            Content = $"{kort}\n\nHet bestand wordt definitief verwijderd; dit kan niet ongedaan gemaakt worden.",
-            PrimaryButtonText = "Verwijderen",
-            CloseButtonText = "Annuleren",
-            DefaultButton = ContentDialogButton.Close,
-        };
-        if (await vraag.ShowAsync() != ContentDialogResult.Primary)
+        var taak = (await Beeldservice.LijstAsync("beeld")).FirstOrDefault(t => string.Equals(t.Bestand, _bestand, StringComparison.OrdinalIgnoreCase));
+        if (taak is null
+            || !await Onderdelen.BevestigAsync(XamlRoot, "Dit beeld verwijderen?", $"{Onderdelen.Kort(taak.Prompt, 120)}\n\nHet bestand wordt definitief verwijderd; dit kan niet ongedaan gemaakt worden."))
         {
             return;
         }
@@ -386,61 +440,15 @@ public sealed class TekstNaarBeeld : UserControl, IVerversbaar
             return;
         }
 
-        _getoond = null;
+        _bestand = _prompt = null;
         _beeld.Source = null;
         _beeldInfo.Text = "";
         _geenBeeld.Visibility = Visibility.Visible;
-        _inMap.IsEnabled = _verwijder.IsEnabled = false;
+        ZetBeeldknoppen(false);
+        WisSessie();
         _status.Text = "Beeld verwijderd.";
         await VerversAsync();
     }
-
-    // ---------------------------------------------------------------- hulp
-
-    /// <summary>Laadt een beeld zonder het bestand vast te houden; <paramref name="breedte"/> houdt miniaturen klein.</summary>
-    private static async Task<BitmapImage?> LaadAsync(string pad, int? breedte)
-    {
-        try
-        {
-            var beeld = new BitmapImage();
-            if (breedte is { } b)
-            {
-                beeld.DecodePixelWidth = b;
-            }
-
-            var bytes = await File.ReadAllBytesAsync(pad);
-            using var stroom = new MemoryStream(bytes);
-            await beeld.SetSourceAsync(stroom.AsRandomAccessStream());
-            return beeld;
-        }
-        catch (Exception)
-        {
-            return null;
-        }
-    }
-
-    private static ComboBox Keuze(string kop, IEnumerable<(string Tag, string Naam)> keuzes, string gekozen)
-    {
-        var keuze = new ComboBox { Header = kop, HorizontalAlignment = HorizontalAlignment.Stretch };
-        foreach (var (tag, naam) in keuzes)
-        {
-            var item = new ComboBoxItem { Content = naam, Tag = tag };
-            keuze.Items.Add(item);
-            if (tag == gekozen)
-            {
-                keuze.SelectedItem = item;
-            }
-        }
-
-        if (keuze.SelectedIndex < 0)
-        {
-            keuze.SelectedIndex = 0;
-        }
-
-        return keuze;
-    }
-
-    private static string Gekozen(ComboBox keuze) => (keuze.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
 
     private static string ModelNaam(string tag) =>
         Beeldmodellen.FirstOrDefault(m => m.Tag == tag).Naam?.Split(" - ")[0] ?? (tag.Length > 0 ? tag : "standaardmodel");

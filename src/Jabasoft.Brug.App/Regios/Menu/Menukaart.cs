@@ -36,7 +36,7 @@ public static class Menukaart
             new("imagefunn.tekstnaarbeeld", "Tekst naar beeld", "",
                 "Een beeld maken uit een omschrijving, met galerij.", Fase: 4),
             new("imagefunn.beeldnaartekst", "Beeld naar tekst", "",
-                "Een beeld laten beschrijven, uitlezen of omzetten naar een prompt.", Fase: 4, Beschikbaar: false),
+                "Een beeld laten beschrijven, uitlezen of omzetten naar een prompt.", Fase: 4),
             new("imagefunn.beeldnaarvideo", "Beeld naar video", "",
                 "Een beeld laten bewegen.", Fase: 4),
             new("imagefunn.tekstnaarvideo", "Tekst naar video", "",

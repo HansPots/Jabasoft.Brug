@@ -34,6 +34,14 @@ public sealed partial class MainWindow : Window
                 await ontvanger.OntvangAsync(vraag.Pad);
             }
         };
+        Modules.ImageFunn.Doorgeven.TekstGevraagd += (_, vraag) =>
+        {
+            Menu.Kies(vraag.Scherm);
+            if (_schermen.TryGetValue(vraag.Scherm, out var scherm) && scherm is Modules.ImageFunn.IOntvangtTekst ontvanger)
+            {
+                ontvanger.Ontvang(vraag.Tekst);
+            }
+        };
     }
 
     private void Toon(string sleutel)
@@ -76,6 +84,7 @@ public sealed partial class MainWindow : Window
         "imagefunn.tekstnaarbeeld" => new Modules.ImageFunn.TekstNaarBeeld(),
         "imagefunn.beeldnaarvideo" => new Modules.ImageFunn.VideoScherm(vanBeeld: true),
         "imagefunn.tekstnaarvideo" => new Modules.ImageFunn.VideoScherm(vanBeeld: false),
+        "imagefunn.beeldnaartekst" => new Modules.ImageFunn.BeeldNaarTekst(),
         _ => new LegePagina(onderdeel),
     };
 

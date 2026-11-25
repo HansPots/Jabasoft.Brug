@@ -243,5 +243,16 @@ public static class Doorgeven
 {
     public static event EventHandler<(string Scherm, string Pad)>? Gevraagd;
 
+    public static event EventHandler<(string Scherm, string Tekst)>? TekstGevraagd;
+
     public static void Naar(string scherm, string pad) => Gevraagd?.Invoke(null, (scherm, pad));
+
+    /// <summary>Een tekst (bijvoorbeeld een prompt) naar een ander scherm sturen.</summary>
+    public static void TekstNaar(string scherm, string tekst) => TekstGevraagd?.Invoke(null, (scherm, tekst));
+}
+
+/// <summary>Een scherm dat een tekst van een ander ImageFunn-scherm kan overnemen (bijvoorbeeld een prompt).</summary>
+public interface IOntvangtTekst
+{
+    void Ontvang(string tekst);
 }
