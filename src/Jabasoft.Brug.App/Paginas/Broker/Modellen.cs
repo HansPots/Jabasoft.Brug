@@ -237,7 +237,7 @@ public sealed class Modellen : BrokerPagina
                 _verborgen.Contains(gekozen),
                 !_serverGelukt || _opServer.Contains(gekozen),
                 _tokens.GetValueOrDefault(gekozen),
-                new StackPanel { Spacing = 10, Children = { GebruiktBlok(gekozen), SterrenBlok(gekozen) } })
+                () => new StackPanel { Spacing = 10, Children = { GebruiktBlok(gekozen), SterrenBlok(gekozen) } })
             {
                 VerticalAlignment = VerticalAlignment.Top,
             };
@@ -298,7 +298,9 @@ public sealed class Modellen : BrokerPagina
                     _ => ("BorderBrush", $"Nu: {huidig ?? "niets"}. Klik om dit model voor {plekNaam} te kiezen."),
                 };
 
-                var knop = Bouw.Knop(plekNaam, (_, _) =>
+                // Vinkje: aan = staat hier (of wordt hier gezet), uit = kan hier.
+                var aan = gekozen || (ditModel && !vervangen);
+                var knop = Bouw.Knop($"{(aan ? "☑" : "☐")}  {plekNaam}", (_, _) =>
                 {
                     if (gekozen || vervangen)
                     {
@@ -701,9 +703,11 @@ public sealed class Modellen : BrokerPagina
         private readonly bool _verborgen;
         private readonly bool _opServer;
         private readonly TokenModel? _tokens;
-        private readonly UIElement? _sterren;
+        // Een maker in plaats van een kant-en-klaar blok: na Bewerken > Annuleren
+        // hangt het oude blok nog in het vorige paneel, en hergebruiken gaf een COM-fout (0x800F1000).
+        private readonly Func<UIElement>? _sterren;
 
-        public Modelkaart(string naam, Modelinfo? info, IReadOnlyList<string> taken, bool verborgen, bool opServer, TokenModel? tokens, UIElement? sterren = null)
+        public Modelkaart(string naam, Modelinfo? info, IReadOnlyList<string> taken, bool verborgen, bool opServer, TokenModel? tokens, Func<UIElement>? sterren = null)
         {
             _sterren = sterren;
             _naam = naam;
@@ -767,13 +771,7 @@ public sealed class Modellen : BrokerPagina
 
             if (_sterren is not null)
             {
-                // Na Bewerken > Annuleren hangt het blok nog in het vorige paneel: eerst losmaken.
-                if (_sterren is FrameworkElement { Parent: Panel vorige })
-                {
-                    vorige.Children.Remove(_sterren);
-                }
-
-                inhoud.Children.Add(_sterren);
+                inhoud.Children.Add(_sterren());
             }
 
             inhoud.Children.Add(Bouw.Knop(_info is null ? "Beschrijven" : "Bewerken", (_, _) => ToonBewerken(), "BorderBrush"));
