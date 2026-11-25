@@ -48,6 +48,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
     private readonly Button _stop;
     private readonly ProgressBar _voortgang = Onderdelen.Voortgang();
     private readonly TextBlock _status = Bouw.Melding("Klaar voor een opdracht.");
+    private readonly TextBlock _tip = Bouw.Melding("");
 
     private readonly Image _beeld = new() { Stretch = Stretch.Uniform, MaxHeight = 720, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top };
     private readonly Tekenlaag _tekenlaag = new() { Visibility = Visibility.Collapsed, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Top };
@@ -101,8 +102,11 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         var opdracht = new StackPanel
         {
             Spacing = 16,
-            Children = { _omschrijving, keuzes, _verbeter, Onderdelen.Knoppen(_maak, _letterlijk, _stop), _voortgang, _status },
+            Children = { _omschrijving, keuzes, _tip, _verbeter, Onderdelen.Knoppen(_maak, _letterlijk, _stop), _voortgang, _status },
         };
+        _stijl.SelectionChanged += (_, _) => ZetTip();
+        _model.SelectionChanged += (_, _) => ZetTip();
+        ZetTip();
 
         // ---- beeld (de tekenlaag ligt precies over het getoonde beeld, voor het aanwijzen van een gebied)
         _beeld.SizeChanged += (_, _) =>
@@ -172,6 +176,14 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         };
 
         Loaded += async (_, _) => await VerversAsync();
+    }
+
+    /// <summary>Een tip als de gekozen stijl slecht past bij het beeldmodel (getekende stijlen met een fotomodel).</summary>
+    private void ZetTip()
+    {
+        _tip.Text = Beeldstijl.Van(Onderdelen.Gekozen(_stijl)).Tip(Onderdelen.Gekozen(_model));
+        _tip.Visibility = _tip.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _tip.Foreground = Bouw.Kleur("AccentBrush");
     }
 
     /// <summary>Een prompt van een ander scherm (bijvoorbeeld Beeld naar tekst › Maak er een beeld van).</summary>
@@ -256,7 +268,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
             if (!letterlijk && _verbeter.IsChecked == true)
             {
                 _status.Text = "Omschrijving vertalen en verbeteren…";
-                var (verbeterd, fout) = await Promptschrijver.VerbeterAsync(tekst);
+                var (verbeterd, fout) = await Promptschrijver.VerbeterAsync(tekst, Promptsoort.Beeld, Onderdelen.Gekozen(_model));
                 if (verbeterd is not null)
                 {
                     prompt = verbeterd;
@@ -268,9 +280,10 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
                 }
             }
 
-            // De gekozen stijl komt vóór de prompt, met een eigen negatieve prompt. Letterlijk: niets erbij.
+            // De gekozen stijl komt áchter de prompt (RealVisXL en Juggernaut lezen maar 77 woorddelen: zo valt bij een
+            // lange omschrijving de stijl weg en niet je eigen tekst), met een eigen negatieve prompt. Letterlijk: niets erbij.
             var stijl = Beeldstijl.Van(letterlijk ? "geen" : Onderdelen.Gekozen(_stijl));
-            prompt = stijl.MetStijl(prompt);
+            prompt = stijl.AchterTekst(prompt);
             var formaat = Onderdelen.Gekozen(_formaat).Split('x');
 
             await VoerUitAsync(new BeeldOpdracht

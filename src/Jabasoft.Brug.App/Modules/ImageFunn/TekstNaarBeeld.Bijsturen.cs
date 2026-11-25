@@ -213,7 +213,7 @@ public sealed partial class TekstNaarBeeld
             // De prompt van het beeld bijwerken met de wijzigingen; het beeldmodel leest alleen Engels.
             _status.Text = "Wijziging verwerken in de prompt…";
             var basis = _sessie?.BasisPrompt ?? _prompt ?? _omschrijving.Text.Trim();
-            var (nieuw, fout) = await Promptschrijver.VerbeterAsync($"ORIGINAL PROMPT: {basis}\nCHANGE REQUESTS:\n{WijzigingenTekst(wijziging)}", Promptsoort.Bewerk);
+            var (nieuw, fout) = await Promptschrijver.VerbeterAsync($"ORIGINAL PROMPT: {basis}\nCHANGE REQUESTS:\n{WijzigingenTekst(wijziging)}", Promptsoort.Bewerk, Onderdelen.Gekozen(_model));
             var prompt = nieuw ?? $"{basis}, {wijziging}";
             var opmerking = nieuw is null ? $"Prompt bijwerken mislukt ({fout}), de wijziging is achter de prompt gezet. " : null;
 

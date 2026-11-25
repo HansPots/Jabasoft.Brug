@@ -58,8 +58,19 @@ public static class Promptschrijver
         "physically plausible and do not add new subjects or change what is in the picture. " +
         "Output ONLY the prompt: no quotes, no explanation, no line breaks.";
 
-    /// <summary>De verbeterde prompt, of null met een fout: dan valt de aanroeper terug op de eigen tekst.</summary>
-    public static async Task<(string? Prompt, string? Fout)> VerbeterAsync(string omschrijving, Promptsoort soort = Promptsoort.Beeld)
+    /// <summary>
+    /// Hoeveel woorden een beeldprompt mag zijn voor dit beeldmodel. RealVisXL en Juggernaut (SDXL) lezen maar 77
+    /// woorddelen en kappen de rest af; met de stijltekst erachter blijft er voor de omschrijving zo'n 40 woorden over.
+    /// FLUX leest er 256, daar mag het ruimer.
+    /// </summary>
+    public static int MaxWoorden(string beeldmodel, Promptsoort soort) =>
+        beeldmodel == "flux" ? (soort == Promptsoort.Bewerk ? 90 : 70) : (soort == Promptsoort.Bewerk ? 45 : 40);
+
+    /// <summary>
+    /// De verbeterde prompt, of null met een fout: dan valt de aanroeper terug op de eigen tekst.
+    /// <paramref name="beeldmodel"/> bepaalt bij een beeldprompt (Beeld, Bewerk) hoe lang die mag zijn.
+    /// </summary>
+    public static async Task<(string? Prompt, string? Fout)> VerbeterAsync(string omschrijving, Promptsoort soort = Promptsoort.Beeld, string? beeldmodel = null)
     {
         var instructie = soort switch
         {
@@ -68,6 +79,12 @@ public static class Promptschrijver
             Promptsoort.Scene => SceneInstructie,
             _ => Instructie,
         };
+        if (beeldmodel is not null && soort is Promptsoort.Beeld or Promptsoort.Bewerk)
+        {
+            instructie = instructie
+                .Replace("at most 70 words", $"at most {MaxWoorden(beeldmodel, soort)} words")
+                .Replace("at most 90 words", $"at most {MaxWoorden(beeldmodel, soort)} words");
+        }
         var onderdeel = soort switch
         {
             Promptsoort.Beweging => "Beeld naar video (prompt)",

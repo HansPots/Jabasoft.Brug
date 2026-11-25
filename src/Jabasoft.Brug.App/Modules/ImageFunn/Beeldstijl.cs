@@ -45,6 +45,29 @@ public sealed record Beeldstijl(string Tag, string Naam, string Prefix, string N
         return string.IsNullOrWhiteSpace(tekst) ? Prefix : $"{Prefix}, {tekst}";
     }
 
+    /// <summary>
+    /// Zet de stijltekst áchter de omschrijving (tenzij die er al in staat). Voor Tekst naar beeld: RealVisXL en
+    /// Juggernaut lezen maar 77 woorddelen, en zo valt bij een lange omschrijving de stijl weg in plaats van je eigen tekst.
+    /// </summary>
+    public string AchterTekst(string tekst)
+    {
+        if (Prefix.Length == 0 || tekst.Contains(Prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return tekst;
+        }
+
+        return string.IsNullOrWhiteSpace(tekst) ? Prefix : $"{tekst.TrimEnd().TrimEnd('.', ',')}, {Prefix}";
+    }
+
+    /// <summary>De beeldstijlen die getekend zijn: daar zijn de fotomodellen (RealVisXL, Juggernaut) zwak in.</summary>
+    public bool Getekend => Tag is "anime" or "manga" or "tekenfilm";
+
+    /// <summary>Een tip als deze stijl slecht past bij het gekozen beeldmodel, anders leeg.</summary>
+    public string Tip(string beeldmodel) =>
+        Getekend && beeldmodel is "realvis" or "juggernaut"
+            ? $"Tip: {Naam} lukt beter met FLUX.1-schnell. RealVisXL en Juggernaut zijn op foto's getraind en trekken alles richting realistisch."
+            : "";
+
     /// <summary>Vervangt een bekende stijltekst aan het begin van <paramref name="tekst"/> door die van deze stijl.</summary>
     public string Wissel(string tekst)
     {

@@ -69,6 +69,7 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
         TextWrapping = TextWrapping.Wrap,
         Height = 110,
     };
+    private readonly TextBlock _stijlTip = Bouw.Melding("");
     private readonly StackPanel _voorbeeldRij = new() { Orientation = Orientation.Horizontal, Spacing = 12, Visibility = Visibility.Collapsed };
     private readonly TextBlock _voorbeeldTekst = Bouw.Melding("nog geen gekozen");
     private Button _tijdlijnKnop = null!;
@@ -233,7 +234,10 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
         Bouw.Zet(instellingen, _videomodel, 3, 0);
         Bouw.Zet(instellingen, _consistentie, 4, 0);
         Bouw.Zet(instellingen, _gelijkenis, 4, 1);
-        var links = new StackPanel { Spacing = 16, Children = { instellingen, _voorbeeldRij, _controleer } };
+        var links = new StackPanel { Spacing = 16, Children = { instellingen, _stijlTip, _voorbeeldRij, _controleer } };
+        _beeldstijl.SelectionChanged += (_, _) => ZetStijlTip();
+        _beeldmodel.SelectionChanged += (_, _) => ZetStijlTip();
+        ZetStijlTip();
 
         _tijdlijnKnop = Bouw.Knop("Maak tijdlijn uit idee", async (_, _) => await MaakTijdlijnAsync());
         var rechts = new StackPanel
@@ -345,6 +349,14 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
         raster.Children.Add(links);
         raster.Children.Add(rechts);
         return raster;
+    }
+
+    /// <summary>Een tip als de gekozen beeldstijl slecht past bij het beeldmodel (getekende stijlen met een fotomodel).</summary>
+    private void ZetStijlTip()
+    {
+        _stijlTip.Text = HuidigeStijl().Tip(Onderdelen.Gekozen(_beeldmodel));
+        _stijlTip.Visibility = _stijlTip.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _stijlTip.Foreground = Bouw.Kleur("AccentBrush");
     }
 
     // ---------------------------------------------------------------- stappen
