@@ -69,29 +69,12 @@ public sealed partial class FilmScherm
 
     // ---------------------------------------------------------------- engelse tekst afleiden
 
-    /// <summary>De modellen lezen alleen Engels: scènes zonder Engelse tekst eerst laten afleiden. False = mislukt.</summary>
+    /// <summary>
+    /// De modellen lezen alleen Engels: scènes zonder Engelse tekst eerst laten afleiden. Het resultaat komt in de
+    /// zichtbare vakken "Eerste beeld" en "Beweging en camera" van de scène; wat daar staat, gaat naar het model. False = mislukt.
+    /// </summary>
     private async Task<bool> LeidAfMissendeAsync()
     {
-        // Letterlijk: geen vertaling. Wat je bij 'Wat gebeurt er?' typt, wordt zelf het beeld en de beweging.
-        if (Letterlijk)
-        {
-            foreach (var scene in _scenes.Where(s => string.IsNullOrEmpty(s.Bestand)))
-            {
-                if (string.IsNullOrWhiteSpace(scene.Beeld))
-                {
-                    scene.Beeld = scene.Gebeurt.Trim();
-                }
-
-                if (string.IsNullOrWhiteSpace(scene.Beweging))
-                {
-                    scene.Beweging = scene.Gebeurt.Trim();
-                }
-            }
-
-            ToonScene();
-            return true;
-        }
-
         var afleiden = _scenes.Where(s => string.IsNullOrEmpty(s.Bestand) && string.IsNullOrWhiteSpace(s.Beeld)).ToList();
         for (var n = 0; n < afleiden.Count; n++)
         {

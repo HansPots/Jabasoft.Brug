@@ -46,9 +46,9 @@ public sealed class VideoScherm : UserControl, IVerversbaar, IOntvangtBeeld
     private readonly ComboBox _model;
     private readonly ComboBox _duur;
     private readonly ComboBox _formaat;
-    private readonly CheckBox _verbeter;
+    private readonly TextBox _negatief;
     private readonly Button _maak;
-    private readonly Button _letterlijk;
+    private readonly Button _verbeterKnop;
     private readonly Button _stop;
     private readonly ProgressBar _voortgang = Onderdelen.Voortgang();
     private readonly TextBlock _status = Bouw.Melding("Klaar voor een opdracht.");
@@ -106,11 +106,19 @@ public sealed class VideoScherm : UserControl, IVerversbaar, IOntvangtBeeld
         _model = Onderdelen.Keuze("Videomodel", Onderdelen.Videomodellen, "wan");
         _duur = Onderdelen.Keuze("Duur", Onderdelen.Duren, "97");
         _formaat = Onderdelen.Keuze(vanBeeld ? "Kwaliteit" : "Formaat", vanBeeld ? FormatenBeeld : FormatenTekst, vanBeeld ? "640x480" : "704x480");
-        _verbeter = Onderdelen.Verbetervinkje(_scherm);
+        _negatief = new TextBox
+        {
+            Header = "Negatief - wat er niet in de video mag (Wan 2.2 snel doet hier niets mee)",
+            PlaceholderText = "leeg = de standaard van het videomodel",
+            TextWrapping = TextWrapping.Wrap,
+            Text = NegatiefStandaard,
+        };
 
-        _maak = Bouw.Knop("Maak video", async (_, _) => await MaakAsync(letterlijk: false));
-        _letterlijk = Bouw.Knop("Letterlijk", async (_, _) => await MaakAsync(letterlijk: true), "AccentBrushLight");
-        ToolTipService.SetToolTip(_letterlijk, "Je tekst gaat precies zo naar het model, niet vertaald of verbeterd. Schrijf dan zelf in het Engels.");
+        // Maak video stuurt precies wat er staat; Verbeter / vertaal zet de Engelse tekst van het chatmodel zichtbaar terug.
+        _maak = Bouw.Knop("Maak video", async (_, _) => await MaakAsync());
+        ToolTipService.SetToolTip(_maak, "Stuurt de omschrijving en de negatieve prompt precies zoals ze er staan naar het videomodel.");
+        _verbeterKnop = Bouw.Knop("Verbeter / vertaal", async (_, _) => await VerbeterAsync(), "AccentBrushLight");
+        ToolTipService.SetToolTip(_verbeterKnop, "Het chatmodel maakt van je omschrijving een Engelse prompt en zet die terug in het tekstvak.");
         _stop = Bouw.Knop("Stop", async (_, _) => await StopAsync(), "TextMutedBrush");
         _stop.IsEnabled = false;
 
@@ -118,7 +126,7 @@ public sealed class VideoScherm : UserControl, IVerversbaar, IOntvangtBeeld
         Bouw.Zet(keuzes, _model, 0, 0);
         Bouw.Zet(keuzes, _duur, 0, 1);
         Bouw.Zet(keuzes, _formaat, 0, 2);
-        foreach (var deel in new UIElement[] { _omschrijving, keuzes, _verbeter, Onderdelen.Knoppen(_maak, _letterlijk, _stop), _voortgang, _status })
+        foreach (var deel in new UIElement[] { _omschrijving, _negatief, Onderdelen.Knoppen(_verbeterKnop), keuzes, Onderdelen.Knoppen(_maak, _stop), _voortgang, _status })
         {
             opdracht.Children.Add(deel);
         }
@@ -221,7 +229,7 @@ public sealed class VideoScherm : UserControl, IVerversbaar, IOntvangtBeeld
 
     // ---------------------------------------------------------------- maken
 
-    private async Task MaakAsync(bool letterlijk)
+    private async Task MaakAsync()
     {
         var tekst = _omschrijving.Text.Trim();
         if (_vanBeeld && _bronPad is null)
@@ -242,26 +250,13 @@ public sealed class VideoScherm : UserControl, IVerversbaar, IOntvangtBeeld
         string? opmerking = null;
         try
         {
-            // Het videomodel leest alleen Engels. Lukt het omschrijven niet, dan gaat de eigen tekst mee.
-            if (!letterlijk && _verbeter.IsChecked == true && tekst.Length > 0)
-            {
-                _status.Text = _vanBeeld ? "Beweging vertalen en verbeteren…" : "Scène vertalen en verbeteren…";
-                var (verbeterd, fout) = await Promptschrijver.VerbeterAsync(tekst, _vanBeeld ? Promptsoort.Beweging : Promptsoort.Scene);
-                if (verbeterd is not null)
-                {
-                    tekst = verbeterd;
-                }
-                else
-                {
-                    opmerking = $"Verbeteren mislukt ({fout}), je eigen tekst is gebruikt. ";
-                }
-            }
-
+            // Precies wat er staat: niets vertaald (daarvoor is de knop Verbeter / vertaal).
             _lopend = await Beeldservice.StartAsync(new BeeldOpdracht
             {
                 Soort = "video",
                 BronBeeld = _vanBeeld ? _bronPad : null,
                 Prompt = tekst,
+                Negatief = _negatief.Text.Trim(),
                 Frames = int.Parse(Onderdelen.Gekozen(_duur), Bouw.Nl),
                 Videomodel = Onderdelen.Gekozen(_model),
                 Breedte = int.Parse(formaat[0], Bouw.Nl),
@@ -338,9 +333,46 @@ public sealed class VideoScherm : UserControl, IVerversbaar, IOntvangtBeeld
         }
     }
 
+    /// <summary>
+    /// De negatieve prompt die het videomodel zelf gebruikt als er geen wordt meegestuurd (NEGATIEF_STANDAARD in
+    /// ImageFunn.Image/videomodellen.py). Hier zichtbaar ingevuld, zodat je ziet en kunt aanpassen wat er meegaat.
+    /// </summary>
+    private const string NegatiefStandaard = "worst quality, inconsistent motion, blurry, jittery, distorted, static, still image";
+
+    /// <summary>Laat het chatmodel de omschrijving vertalen en verbeteren, en zet het resultaat terug in het tekstvak.</summary>
+    private async Task VerbeterAsync()
+    {
+        var tekst = _omschrijving.Text.Trim();
+        if (tekst.Length == 0)
+        {
+            _status.Text = _vanBeeld ? "Beschrijf eerst de beweging." : "Beschrijf eerst de scène.";
+            return;
+        }
+
+        ZetBezig(true);
+        try
+        {
+            _status.Text = _vanBeeld ? "Beweging vertalen en verbeteren…" : "Scène vertalen en verbeteren…";
+            var (verbeterd, fout) = await Promptschrijver.VerbeterAsync(tekst, _vanBeeld ? Promptsoort.Beweging : Promptsoort.Scene);
+            if (verbeterd is not null)
+            {
+                _omschrijving.Text = verbeterd;
+                _status.Text = "Verbeterd - lees en pas aan, en druk dan op Maak video.";
+            }
+            else
+            {
+                _status.Text = $"Verbeteren mislukt ({fout}). Je eigen tekst staat er nog.";
+            }
+        }
+        finally
+        {
+            ZetBezig(false);
+        }
+    }
+
     private void ZetBezig(bool bezig)
     {
-        _maak.IsEnabled = _letterlijk.IsEnabled = !bezig;
+        _maak.IsEnabled = _verbeterKnop.IsEnabled = !bezig;
         _stop.IsEnabled = false;
         _voortgang.Value = 0;
         _voortgang.Visibility = bezig ? Visibility.Visible : Visibility.Collapsed;

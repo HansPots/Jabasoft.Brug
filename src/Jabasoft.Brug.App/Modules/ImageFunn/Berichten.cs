@@ -99,6 +99,10 @@ public sealed class BeeldOpdracht
     /// <summary>Bij bijsturen: hoeveel er mag veranderen, 0,05 (bijna niets) tot 1 (alles).</summary>
     [JsonPropertyName("sterkte")]
     public double Sterkte { get; set; } = 0.5;
+
+    /// <summary>Soort "beeld" met <see cref="BronBeeld"/>: het beeld 2× vergroten (Real-ESRGAN) in plaats van bijsturen.</summary>
+    [JsonPropertyName("vergroot")]
+    public bool Vergroot { get; set; }
 }
 
 /// <summary>Een speler of plek in de cast van een film - spiegelt service.py's CastItem.</summary>

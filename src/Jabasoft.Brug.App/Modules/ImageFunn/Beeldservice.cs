@@ -133,6 +133,34 @@ public static class Beeldservice
         }
     }
 
+    /// <summary>
+    /// Om en om met het taalmodel: heeft de beeldservice een model geladen, dan laat hij dat los en stopt hij, vóórdat er
+    /// een vraag naar het taalmodel gaat. De service houdt anders 11 tot 17 GB werkgeheugen vast (PyTorch geeft dat pas
+    /// terug als het proces stopt) en het taalmodel komt daar in LM Studio bovenop: samen past dat niet in 32 GB.
+    /// Omgekeerd ontlaadt <see cref="StartAsync"/> het taalmodel al vóór een beeldopdracht. Loopt er een opdracht, dan
+    /// gebeurt er niets. Het volgende beeld laadt het model opnieuw (15 tot 35 seconden).
+    /// </summary>
+    public static async Task MaakRuimteVoorTaalmodelAsync()
+    {
+        var gezond = await GezondheidAsync().ConfigureAwait(false);
+        if (gezond is null || !(gezond.ModelGeladen || gezond.VideoModelGeladen))
+        {
+            return;
+        }
+
+        if (!await MaakVideogeheugenVrijAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+
+        for (var i = 0; i < 20 && await GezondheidAsync().ConfigureAwait(false) is not null; i++)
+        {
+            await Task.Delay(250).ConfigureAwait(false);
+        }
+
+        App.AppLog.Schrijf("imagefunn", "Beeldservice gestopt om werkgeheugen vrij te maken voor het taalmodel");
+    }
+
     /// <summary>De stand van de service, of null als hij niet draait.</summary>
     public static async Task<BeeldServiceGezondheid?> GezondheidAsync()
     {
@@ -209,6 +237,12 @@ public static class Beeldservice
 
     private static bool HeeftAnderModel(BeeldServiceGezondheid gezond, BeeldOpdracht opdracht)
     {
+        // Vergroten gebruikt een eigen klein netwerk naast wat er geladen is: daarvoor hoeft niets los te worden gelaten.
+        if (opdracht.Vergroot)
+        {
+            return false;
+        }
+
         var wilBeeld = opdracht.Soort != "video";
         var wilVideo = opdracht.Soort is "video" or "film";
         var beeldmodel = string.IsNullOrEmpty(opdracht.Beeldmodel) ? gezond.Model : opdracht.Beeldmodel;
@@ -315,10 +349,10 @@ public static class Beeldservice
     private static bool ZelfdeMap(string? a, string b) =>
         a is not null && string.Equals(Path.GetFullPath(a).TrimEnd('\\'), Path.GetFullPath(b).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>De versie van de code op schijf: de laatste wijziging van service.py, videomodellen.py of service_modellen.py (zoals service.py hem meldt).</summary>
+    /// <summary>De versie van de code op schijf: de laatste wijziging van service.py, videomodellen.py, service_modellen.py of vergroten.py (zoals service.py hem meldt).</summary>
     private static long CodeVersie()
     {
-        var bestanden = new[] { "service.py", "videomodellen.py", "service_modellen.py" }.Select(n => Path.Combine(ServiceMap, n)).Where(File.Exists).ToList();
+        var bestanden = new[] { "service.py", "videomodellen.py", "service_modellen.py", "vergroten.py" }.Select(n => Path.Combine(ServiceMap, n)).Where(File.Exists).ToList();
         return bestanden.Count == 0 ? -1 : new DateTimeOffset(bestanden.Max(File.GetLastWriteTimeUtc)).ToUnixTimeSeconds();
     }
 

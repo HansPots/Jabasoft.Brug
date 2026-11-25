@@ -31,7 +31,16 @@ public sealed partial class TekstNaarBeeld
     private readonly StackPanel _penseelRij = new() { Orientation = Orientation.Horizontal, Spacing = 16, Visibility = Visibility.Collapsed };
     private readonly StackPanel _aanwijzingen = new() { Spacing = 4 };
     private readonly StackPanel _versies = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
+    private readonly TextBox _bijstuurPrompt = new()
+    {
+        Header = "Prompt voor het model (dit gaat er bij Pas toe naartoe)",
+        AcceptsReturn = true,
+        TextWrapping = TextWrapping.Wrap,
+        Height = 130,
+    };
+
     private Button _pasToe = null!;
+    private Button _verwerk = null!;
     private Border _bijstuurpaneel = null!;
 
     private BeeldSessie? _sessie;
@@ -40,6 +49,9 @@ public sealed partial class TekstNaarBeeld
     private Border MaakBijstuurpaneel()
     {
         _pasToe = Bouw.Knop("Pas toe", async (_, _) => await BijsturenAsync());
+        ToolTipService.SetToolTip(_pasToe, "Stuurt de prompt hierboven precies zoals hij er staat, met de negatieve prompt uit Opdracht.");
+        _verwerk = Bouw.Knop("Verwerk in prompt", async (_, _) => await VerwerkAsync(), "AccentBrushLight");
+        ToolTipService.SetToolTip(_verwerk, "Het chatmodel verwerkt je wijziging (en de aanwijzingen die aanstaan) in de prompt van het beeld en zet het resultaat in het tekstvak.");
         ToolTipService.SetToolTip(_sterkte, "Laag: de indeling blijft bijna gelijk. Hoog: meer vrijheid, en nodig om iets toe te voegen.");
         ToolTipService.SetToolTip(_gebied, "Teken op het beeld waar iets moet veranderen. Alleen dat gebied wordt opnieuw gemaakt, de rest blijft zoals het is.");
         _sterkte.ValueChanged += (_, e) => _sterkte.Header = $"Hoeveel mag er veranderen: {e.NewValue:0}%";
@@ -63,6 +75,8 @@ public sealed partial class TekstNaarBeeld
             Children =
             {
                 _wijziging,
+                _verwerk,
+                _bijstuurPrompt,
                 _sterkte,
                 _gebied,
                 _penseelRij,
@@ -103,6 +117,7 @@ public sealed partial class TekstNaarBeeld
         _sessie = BeeldSessies.Zoek(bestand) ?? BeeldSessies.Nieuw(bestand, prompt);
         _versie = _sessie.Versies.First(v => string.Equals(v.Bestand, bestand, StringComparison.OrdinalIgnoreCase));
         _bijstuurpaneel.Visibility = Visibility.Visible;
+        _bijstuurPrompt.Text = prompt;
         BouwSessie();
     }
 
@@ -180,6 +195,41 @@ public sealed partial class TekstNaarBeeld
 
     // ---------------------------------------------------------------- bijsturen
 
+    /// <summary>
+    /// Laat het chatmodel de wijziging (plus de aanwijzingen die aanstaan) verwerken in de oorspronkelijke prompt, en zet
+    /// het resultaat in het promptvak, zodat je kunt lezen en bijwerken wat er bij Pas toe naar het model gaat.
+    /// </summary>
+    private async Task VerwerkAsync()
+    {
+        var wijziging = _wijziging.Text.Trim();
+        if (wijziging.Length == 0)
+        {
+            _status.Text = "Typ eerst wat er anders moet.";
+            return;
+        }
+
+        ZetBezig(true);
+        try
+        {
+            _status.Text = "Wijziging verwerken in de prompt…";
+            var basis = _sessie?.BasisPrompt ?? _prompt ?? _omschrijving.Text.Trim();
+            var (nieuw, fout) = await Promptschrijver.VerbeterAsync($"ORIGINAL PROMPT: {basis}\nCHANGE REQUESTS:\n{WijzigingenTekst(wijziging)}", Promptsoort.Bewerk, Onderdelen.Gekozen(_model));
+            if (nieuw is not null)
+            {
+                _bijstuurPrompt.Text = nieuw;
+                _status.Text = "Wijziging verwerkt - lees de prompt na en druk op Pas toe.";
+            }
+            else
+            {
+                _status.Text = $"Verwerken mislukt ({fout}). Pas de prompt zelf aan, of probeer het opnieuw.";
+            }
+        }
+        finally
+        {
+            ZetBezig(false);
+        }
+    }
+
     private async Task BijsturenAsync()
     {
         if (_bestand is null)
@@ -188,9 +238,10 @@ public sealed partial class TekstNaarBeeld
         }
 
         var wijziging = _wijziging.Text.Trim();
-        if (wijziging.Length == 0)
+        var prompt = _bijstuurPrompt.Text.Trim();
+        if (prompt.Length == 0)
         {
-            _status.Text = "Typ eerst wat er anders moet.";
+            _status.Text = "De prompt voor het model is leeg.";
             return;
         }
 
@@ -210,12 +261,8 @@ public sealed partial class TekstNaarBeeld
         string? masker = null;
         try
         {
-            // De prompt van het beeld bijwerken met de wijzigingen; het beeldmodel leest alleen Engels.
-            _status.Text = "Wijziging verwerken in de prompt…";
-            var basis = _sessie?.BasisPrompt ?? _prompt ?? _omschrijving.Text.Trim();
-            var (nieuw, fout) = await Promptschrijver.VerbeterAsync($"ORIGINAL PROMPT: {basis}\nCHANGE REQUESTS:\n{WijzigingenTekst(wijziging)}", Promptsoort.Bewerk, Onderdelen.Gekozen(_model));
-            var prompt = nieuw ?? $"{basis}, {wijziging}";
-            var opmerking = nieuw is null ? $"Prompt bijwerken mislukt ({fout}), de wijziging is achter de prompt gezet. " : null;
+            // Precies de prompt uit het promptvak (verwerken doet de knop Verwerk in prompt), met de negatieve prompt uit Opdracht.
+            string? opmerking = null;
 
             if (gebied && _beeld.Source is BitmapImage bron)
             {
@@ -224,19 +271,18 @@ public sealed partial class TekstNaarBeeld
             }
 
             var bronBestand = _bestand;
-            var stijl = Beeldstijl.Van(Onderdelen.Gekozen(_stijl));
             await VoerUitAsync(new BeeldOpdracht
             {
                 Beeldmodel = Onderdelen.Gekozen(_model),
                 Prompt = prompt,
-                Negatief = stijl.Negatief,
+                Negatief = _negatief.Text.Trim(),
                 BronBeeld = bronBestand,
                 Masker = masker,
                 Sterkte = _sterkte.Value / 100,
                 Seed = seed,
             }, opmerking, async stand =>
             {
-                VoegVersieToe(stand.Bestand!, prompt, wijziging, gebied);
+                VoegVersieToe(stand.Bestand!, prompt, wijziging.Length > 0 ? wijziging : "(prompt zelf aangepast)", gebied);
                 await ToonAsync(stand.Bestand!, prompt, stand);
                 _wijziging.Text = "";
                 _status.Text = $"{opmerking}Bijgestuurd - seed {stand.Seed}. Het origineel staat nog in de galerij.";

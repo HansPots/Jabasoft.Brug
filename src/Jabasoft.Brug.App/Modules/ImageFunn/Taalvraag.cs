@@ -40,6 +40,9 @@ public static partial class Taalvraag
         TimeSpan? limiet = null,
         CancellationToken stop = default)
     {
+        // Om en om: de beeldservice en het taalmodel passen samen niet in het werkgeheugen.
+        await Beeldservice.MaakRuimteVoorTaalmodelAsync().ConfigureAwait(false);
+
         var instellingen = await BrokerApi.InstellingenAsync().ConfigureAwait(false);
         if (instellingen.Waarde is not { } geheel)
         {

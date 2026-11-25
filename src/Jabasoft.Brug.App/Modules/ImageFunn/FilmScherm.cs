@@ -69,6 +69,12 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
         TextWrapping = TextWrapping.Wrap,
         Height = 110,
     };
+    private readonly TextBox _negatief = new()
+    {
+        Header = "Negatief voor de beelden - wat er niet in mag (FLUX en Z-Image doen hier niets mee)",
+        PlaceholderText = "leeg = geen negatieve prompt",
+        TextWrapping = TextWrapping.Wrap,
+    };
     private readonly TextBlock _stijlTip = Bouw.Melding("");
     private readonly StackPanel _voorbeeldRij = new() { Orientation = Orientation.Horizontal, Spacing = 12, Visibility = Visibility.Collapsed };
     private readonly TextBlock _voorbeeldTekst = Bouw.Melding("nog geen gekozen");
@@ -80,17 +86,16 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
     private readonly TextBox _titel = new() { Header = "Titel" };
     private readonly ComboBox _duur = Onderdelen.Keuze("Duur", Enumerable.Range(2, 5).Select(s => (s.ToString(Bouw.Nl), $"{s} sec")), "4");
     private readonly TextBox _gebeurt = new() { Header = "Wat gebeurt er?", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 100 };
-    private readonly CheckBox _engelsToon = new() { Content = "Toon de Engelse tekst voor het model" };
+    private readonly CheckBox _engelsToon = new() { Content = "Toon de Engelse tekst voor het model", IsChecked = true };
     private readonly TextBox _beeldTekst = new() { Header = "Eerste beeld (leeg = automatisch afleiden)", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 70 };
     private readonly TextBox _bewegingTekst = new() { Header = "Beweging en camera", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 70 };
-    private readonly StackPanel _engels = new() { Spacing = 12, Visibility = Visibility.Collapsed };
+    private readonly StackPanel _engels = new() { Spacing = 12 };
     private readonly StackPanel _sceneEditor = new() { Spacing = 14 };
 
     // ---- onderin: tijdlijn en film
     private readonly TextBlock _tijdlijnKop = Bouw.Melding("");
     private readonly Canvas _tijdlijn = new() { Height = 96 };
     private readonly ScrollViewer _tijdlijnScroll;
-    private readonly CheckBox _letterlijk = new() { Content = "Letterlijk (niet vertalen, geen stijltekst)" };
     private readonly Button _maak;
     private readonly Button _stop;
     private readonly Button _speelKlaar;
@@ -158,7 +163,6 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
         _toonFilm = Bouw.Knop("Toon de film", async (_, _) => await ToonFilmAsync(), "AccentBrushLight");
         _inMap = Bouw.Knop("Toon in map", (_, _) => Onderdelen.ToonInMap(_filmBestand), "AccentBrushLight");
         _stop.IsEnabled = _speelKlaar.IsEnabled = _toonFilm.IsEnabled = _inMap.IsEnabled = false;
-        ToolTipService.SetToolTip(_letterlijk, "Je tekst gaat precies zo naar het model: niet vertaald, niet verbeterd en zonder stijltekst erbij. Schrijf dan zelf in het Engels. Geldt voor de scènes en de cast; de tijdlijn uit je idee schrijft het chatmodel altijd.");
 
         var filmknoppen = new StackPanel
         {
@@ -166,7 +170,6 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
             Children =
             {
                 Onderdelen.Knoppen(_maak, _stop, _speelKlaar, _toonFilm, _inMap),
-                _letterlijk,
                 Bouw.Kop("EERDER GEMAAKTE FILMS"),
                 _galerijMelding,
                 _galerij,
@@ -205,7 +208,13 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
 
     private UIElement MaakVerhaalTab()
     {
-        _beeldstijl.SelectionChanged += (_, _) => _stijl.Text = HuidigeStijl().Wissel(_stijl.Text);
+        // Een andere beeldstijl past de stijltekst en de negatieve prompt zichtbaar aan: wat er staat, gaat naar het model.
+        _beeldstijl.SelectionChanged += (_, _) =>
+        {
+            _stijl.Text = HuidigeStijl().Wissel(_stijl.Text);
+            _negatief.Text = HuidigeStijl().Negatief;
+        };
+        _negatief.Text = HuidigeStijl().Negatief;
         _consistentie.SelectionChanged += (_, _) =>
             _voorbeeldRij.Visibility = Onderdelen.Gekozen(_consistentie) == "eigen" ? Visibility.Visible : Visibility.Collapsed;
         _modus.SelectionChanged += (_, _) => VernieuwStappen();
@@ -248,6 +257,8 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
                 _idee,
                 _tijdlijnKnop,
                 _stijl,
+                Onderdelen.Knoppen(Bouw.Knop("Stijl toevoegen", (_, _) => _stijl.Text = HuidigeStijl().MetStijl(HuidigeStijl().Wissel(_stijl.Text.Trim())), "AccentBrushLight")),
+                _negatief,
                 Onderdelen.Knoppen(
                     Bouw.Knop("Verhaal opslaan", async (_, _) => await VerhaalOpslaanAsync(), "AccentBrushLight"),
                     Bouw.Knop("Verhaal openen", async (_, _) => await VerhaalOpenenAsync(), "AccentBrushLight"),
@@ -685,12 +696,10 @@ public sealed partial class FilmScherm : UserControl, IVerversbaar, IOntvangtBee
 
     private Beeldstijl HuidigeStijl() => Beeldstijl.Van(Onderdelen.Gekozen(_beeldstijl));
 
-    private bool Letterlijk => _letterlijk.IsChecked == true;
+    /// <summary>De stijl precies zoals hij in het vak staat (de stijltekst zet de knop Stijl toevoegen er zichtbaar in).</summary>
+    private string StijlVoorService() => _stijl.Text.Trim();
 
-    /// <summary>De stijl zoals de service hem krijgt: met de gekozen stijltekst ervoor, behalve bij Letterlijk.</summary>
-    private string StijlVoorService() => Letterlijk ? _stijl.Text.Trim() : HuidigeStijl().MetStijl(_stijl.Text.Trim());
-
-    private string NegatiefVoorService() => Letterlijk ? Beeldstijl.Van("geen").Negatief : HuidigeStijl().Negatief;
+    private string NegatiefVoorService() => _negatief.Text.Trim();
 
     /// <summary>Wat de service nodig heeft om de personages op elkaar te laten lijken.</summary>
     private (string? Referentie, bool Eerste, double Sterkte) Consistentie()

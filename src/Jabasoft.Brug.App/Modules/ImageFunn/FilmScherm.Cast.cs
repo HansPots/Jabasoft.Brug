@@ -436,19 +436,13 @@ public sealed partial class FilmScherm
             return true;
         }
 
-        // De beeldmodellen lezen alleen Engels: de omschrijving eerst laten omzetten. Bij Letterlijk is de omschrijving zelf de prompt.
+        // De beeldmodellen lezen alleen Engels: een omschrijving zonder Engelse beeldtekst eerst laten omzetten.
         foreach (var item in nodig.Where(c => string.IsNullOrWhiteSpace(c.Beeld)))
         {
             if (string.IsNullOrWhiteSpace(item.Beschrijving))
             {
                 _castStatus.Text = $"'{item.Naam}' heeft nog geen omschrijving.";
                 return false;
-            }
-
-            if (Letterlijk)
-            {
-                item.Beeld = item.Beschrijving.Trim();
-                continue;
             }
 
             _castStatus.Text = _status.Text = $"Omschrijving van '{item.Naam}' omzetten voor het beeldmodel…";

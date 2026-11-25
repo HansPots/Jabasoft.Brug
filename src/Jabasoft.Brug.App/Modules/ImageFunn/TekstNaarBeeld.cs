@@ -37,16 +37,23 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         ("1344x768", "Liggend 1344 × 768"),
         ("768x1344", "Staand 768 × 1344"),
         ("768x768", "Klein vierkant 768 × 768 (sneller)"),
+        ("1536x1536", "Groot vierkant 1536 × 1536 (FLUX en Z-Image)"),
+        ("1920x1088", "Groot liggend 1920 × 1088 (FLUX en Z-Image)"),
+        ("1088x1920", "Groot staand 1088 × 1920 (FLUX en Z-Image)"),
     ];
+
+    /// <summary>De grote formaten: RealVisXL en Juggernaut zijn op ±1 megapixel getraind en gaan daarboven dingen dubbel tekenen.</summary>
+    private static bool IsGroot(string formaat) => formaat is "1536x1536" or "1920x1088" or "1088x1920";
 
     private readonly TextBox _omschrijving;
     private readonly ComboBox _stijl;
     private readonly ComboBox _model;
     private readonly ComboBox _formaat;
     private readonly TextBox _seed;
-    private readonly CheckBox _verbeter = Onderdelen.Verbetervinkje("tekstnaarbeeld");
+    private readonly TextBox _negatief;
     private readonly Button _maak;
-    private readonly Button _letterlijk;
+    private readonly Button _verbeterKnop;
+    private readonly Button _stijlKnop;
     private readonly Button _stop;
     private readonly ProgressBar _voortgang = Onderdelen.Voortgang();
     private readonly TextBlock _status = Bouw.Melding("Klaar voor een opdracht.");
@@ -62,6 +69,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
     private readonly Button _naarVideo;
     private readonly Button _naarTekst;
     private readonly Button _naarFilm;
+    private readonly Button _vergroot;
 
     private readonly StackPanel _galerij = new() { Orientation = Orientation.Horizontal, Spacing = 10 };
     private readonly TextBlock _galerijMelding = Bouw.Melding("Ophalen…");
@@ -85,14 +93,26 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
             Height = 170,
         };
         _stijl = Onderdelen.Keuze("Stijl", Beeldstijl.Alle.Select(s => (s.Tag, s.Naam)), "realistisch");
+        _negatief = new TextBox
+        {
+            Header = "Negatief - wat er niet in het beeld mag (FLUX en Z-Image doen hier niets mee)",
+            PlaceholderText = "leeg = geen negatieve prompt",
+            TextWrapping = TextWrapping.Wrap,
+            Text = Beeldstijl.Van(Onderdelen.Gekozen(_stijl)).Negatief,
+        };
         _model = Onderdelen.Keuze("Beeldmodel", Beeldmodellen, Voorkeuren.Lees(Beeldservice.VoorkeurBeeldmodel, "realvis"));
         _formaat = Onderdelen.Keuze("Formaat", Formaten, "1024x1024");
         _seed = new TextBox { Header = "Seed (leeg = willekeurig)", PlaceholderText = "willekeurig" };
         ToolTipService.SetToolTip(_seed, "Dezelfde omschrijving met dezelfde seed geeft hetzelfde beeld.");
 
-        _maak = Bouw.Knop("Maak beeld", async (_, _) => await MaakAsync(letterlijk: false));
-        _letterlijk = Bouw.Knop("Letterlijk", async (_, _) => await MaakAsync(letterlijk: true), "AccentBrushLight");
-        ToolTipService.SetToolTip(_letterlijk, "Je tekst gaat precies zo naar het model: niet vertaald of verbeterd, en zonder stijltekst erbij.");
+        // Maak beeld stuurt precies wat er in Omschrijving en Negatief staat. De twee andere knoppen passen die tekst
+        // zichtbaar aan, zodat je altijd kunt lezen (en bijwerken) wat er naar het beeldmodel gaat.
+        _maak = Bouw.Knop("Maak beeld", async (_, _) => await MaakAsync());
+        ToolTipService.SetToolTip(_maak, "Stuurt de omschrijving en de negatieve prompt precies zoals ze er staan naar het beeldmodel.");
+        _verbeterKnop = Bouw.Knop("Verbeter / vertaal", async (_, _) => await VerbeterAsync(), "AccentBrushLight");
+        ToolTipService.SetToolTip(_verbeterKnop, "Het chatmodel maakt van je omschrijving een Engelse beeldprompt en zet die in Omschrijving.");
+        _stijlKnop = Bouw.Knop("Stijl toevoegen", (_, _) => VoegStijlToe(), "AccentBrushLight");
+        ToolTipService.SetToolTip(_stijlKnop, "Zet de tekst van de gekozen stijl achter de omschrijving (een eerdere stijltekst wordt vervangen) en vult Negatief.");
         _stop = Bouw.Knop("Stop", async (_, _) => await StopAsync(), "TextMutedBrush");
         _stop.IsEnabled = false;
 
@@ -105,10 +125,15 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         var opdracht = new StackPanel
         {
             Spacing = 16,
-            Children = { _omschrijving, keuzes, _tip, _verbeter, Onderdelen.Knoppen(_maak, _letterlijk, _stop), _voortgang, _status },
+            Children =
+            {
+                _omschrijving, _negatief, Onderdelen.Knoppen(_verbeterKnop, _stijlKnop), keuzes, _tip,
+                Onderdelen.Knoppen(_maak, _stop), _voortgang, _status,
+            },
         };
         _stijl.SelectionChanged += (_, _) => ZetTip();
         _model.SelectionChanged += (_, _) => ZetTip();
+        _formaat.SelectionChanged += (_, _) => ZetTip();
         ZetTip();
 
         // ---- beeld (de tekenlaag ligt precies over het getoonde beeld, voor het aanwijzen van een gebied)
@@ -123,6 +148,8 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         _naarTekst = Bouw.Knop("Beschrijf", (_, _) => Geef("imagefunn.beeldnaartekst"), "AccentBrushLight");
         _naarFilm = Bouw.Knop("Gebruik in film", (_, _) => Geef("imagefunn.film"), "AccentBrushLight");
         ToolTipService.SetToolTip(_naarFilm, "Voegt dit beeld toe aan de cast van Film maken, als speler, plek of voorwerp.");
+        _vergroot = Bouw.Knop("Vergroot 2×", async (_, _) => await VergrootAsync(), "AccentBrushLight");
+        ToolTipService.SetToolTip(_vergroot, "Maakt dit beeld 2× zo groot (bijvoorbeeld 2048 × 2048) met Real-ESRGAN: scherpere randen, geen nieuwe details. Het origineel blijft staan.");
         ZetBeeldknoppen(false);
 
         var beeldvlak = new Grid { MinHeight = 420 };
@@ -135,7 +162,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
             Children =
             {
                 beeldvlak,
-                Onderdelen.Knoppen(_naarVideo, _naarTekst, _naarFilm, _inMap, _verwijder),
+                Onderdelen.Knoppen(_naarVideo, _naarTekst, _naarFilm, _vergroot, _inMap, _verwijder),
             },
         };
 
@@ -200,7 +227,10 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
     /// <summary>Een tip als de gekozen stijl slecht past bij het beeldmodel (getekende stijlen met een fotomodel).</summary>
     private void ZetTip()
     {
-        _tip.Text = Beeldstijl.Van(Onderdelen.Gekozen(_stijl)).Tip(Onderdelen.Gekozen(_model));
+        var model = Onderdelen.Gekozen(_model);
+        _tip.Text = IsGroot(Onderdelen.Gekozen(_formaat)) && model is "realvis" or "juggernaut"
+            ? "Tip: grote formaten werken alleen goed met FLUX en Z-Image. RealVisXL en Juggernaut gaan daarboven dingen dubbel tekenen; kies een gewoon formaat en gebruik Vergroot 2×."
+            : Beeldstijl.Van(Onderdelen.Gekozen(_stijl)).Tip(model);
         _tip.Visibility = _tip.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
         _tip.Foreground = Bouw.Kleur("AccentBrush");
     }
@@ -264,7 +294,76 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
 
     // ---------------------------------------------------------------- maken
 
-    private async Task MaakAsync(bool letterlijk)
+    /// <summary>Vergroot het beeld dat nu groot staat 2× (Real-ESRGAN); de uitkomst komt als nieuw beeld in de galerij.</summary>
+    private async Task VergrootAsync()
+    {
+        if (_bestand is null)
+        {
+            return;
+        }
+
+        ZetBezig(true);
+        try
+        {
+            var prompt = _prompt ?? _omschrijving.Text.Trim();
+            await VoerUitAsync(new BeeldOpdracht
+            {
+                Prompt = prompt.Length > 0 ? prompt : "Vergroot",
+                BronBeeld = _bestand,
+                Vergroot = true,
+            }, null, async stand =>
+            {
+                await ToonAsync(stand.Bestand!, prompt, stand);
+                _status.Text = $"Vergroot naar {stand.Breedte} × {stand.Hoogte}. Het origineel staat nog in de galerij.";
+            });
+        }
+        finally
+        {
+            ZetBezig(false);
+        }
+    }
+
+    /// <summary>Laat het chatmodel de omschrijving vertalen en verbeteren, en zet het resultaat terug in Omschrijving.</summary>
+    private async Task VerbeterAsync()
+    {
+        var tekst = _omschrijving.Text.Trim();
+        if (tekst.Length == 0)
+        {
+            _status.Text = "Typ eerst een omschrijving van het beeld.";
+            return;
+        }
+
+        ZetBezig(true);
+        try
+        {
+            _status.Text = "Omschrijving vertalen en verbeteren…";
+            var (verbeterd, fout) = await Promptschrijver.VerbeterAsync(tekst, Promptsoort.Beeld, Onderdelen.Gekozen(_model));
+            if (verbeterd is not null)
+            {
+                _omschrijving.Text = verbeterd;
+                _status.Text = "Verbeterd - lees en pas aan, en druk dan op Maak beeld.";
+            }
+            else
+            {
+                _status.Text = $"Verbeteren mislukt ({fout}). Je eigen tekst staat er nog.";
+            }
+        }
+        finally
+        {
+            ZetBezig(false);
+        }
+    }
+
+    /// <summary>Zet de stijltekst van de gekozen stijl achter de omschrijving en de negatieve prompt van die stijl in Negatief.</summary>
+    private void VoegStijlToe()
+    {
+        var stijl = Beeldstijl.Van(Onderdelen.Gekozen(_stijl));
+        _omschrijving.Text = stijl.VervangAchter(_omschrijving.Text.Trim());
+        _negatief.Text = stijl.Negatief;
+        _status.Text = $"Stijl {stijl.Naam} toegevoegd.";
+    }
+
+    private async Task MaakAsync()
     {
         var tekst = _omschrijving.Text.Trim();
         if (tekst.Length == 0)
@@ -282,34 +381,15 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         string? opmerking = null;
         try
         {
-            // Het beeldmodel leest alleen Engels: eerst laten omschrijven door het chatmodel. Lukt dat niet, dan de eigen tekst.
+            // Precies wat er staat: niets vertaald, geen stijltekst erbij (daarvoor zijn de knoppen Verbeter en Stijl toevoegen).
             var prompt = tekst;
-            if (!letterlijk && _verbeter.IsChecked == true)
-            {
-                _status.Text = "Omschrijving vertalen en verbeteren…";
-                var (verbeterd, fout) = await Promptschrijver.VerbeterAsync(tekst, Promptsoort.Beeld, Onderdelen.Gekozen(_model));
-                if (verbeterd is not null)
-                {
-                    prompt = verbeterd;
-                    ToolTipService.SetToolTip(_omschrijving, $"Verstuurd naar het beeldmodel: {verbeterd}");
-                }
-                else
-                {
-                    opmerking = $"Verbeteren mislukt ({fout}), je eigen tekst is gebruikt. ";
-                }
-            }
-
-            // De gekozen stijl komt áchter de prompt (RealVisXL en Juggernaut lezen maar 77 woorddelen: zo valt bij een
-            // lange omschrijving de stijl weg en niet je eigen tekst), met een eigen negatieve prompt. Letterlijk: niets erbij.
-            var stijl = Beeldstijl.Van(letterlijk ? "geen" : Onderdelen.Gekozen(_stijl));
-            prompt = stijl.AchterTekst(prompt);
             var formaat = Onderdelen.Gekozen(_formaat).Split('x');
 
             await VoerUitAsync(new BeeldOpdracht
             {
                 Beeldmodel = Onderdelen.Gekozen(_model),
                 Prompt = prompt,
-                Negatief = stijl.Negatief,
+                Negatief = _negatief.Text.Trim(),
                 Breedte = int.Parse(formaat[0], Bouw.Nl),
                 Hoogte = int.Parse(formaat[1], Bouw.Nl),
                 Seed = seed,
@@ -409,7 +489,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
 
     private void ZetBezig(bool bezig)
     {
-        _maak.IsEnabled = _letterlijk.IsEnabled = _pasToe.IsEnabled = !bezig;
+        _maak.IsEnabled = _verbeterKnop.IsEnabled = _stijlKnop.IsEnabled = _pasToe.IsEnabled = _verwerk.IsEnabled = !bezig;
         _voortgang.Value = 0;
         _voortgang.Visibility = bezig ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -438,7 +518,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
 
     private void ZetBeeldknoppen(bool aan)
     {
-        _inMap.IsEnabled = _verwijder.IsEnabled = _naarVideo.IsEnabled = _naarTekst.IsEnabled = _naarFilm.IsEnabled = aan;
+        _inMap.IsEnabled = _verwijder.IsEnabled = _naarVideo.IsEnabled = _naarTekst.IsEnabled = _naarFilm.IsEnabled = _vergroot.IsEnabled = aan;
     }
 
     private void Geef(string scherm)

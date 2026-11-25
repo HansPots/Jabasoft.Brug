@@ -59,6 +59,24 @@ public sealed record Beeldstijl(string Tag, string Naam, string Prefix, string N
         return string.IsNullOrWhiteSpace(tekst) ? Prefix : $"{tekst.TrimEnd().TrimEnd('.', ',')}, {Prefix}";
     }
 
+    /// <summary>
+    /// Haalt een eerder toegevoegde stijltekst (van welke stijl ook) uit <paramref name="tekst"/> en zet die van deze
+    /// stijl erachter. Zo kun je van stijl wisselen zonder dat de oude stijltekst blijft staan. "Geen" haalt hem alleen weg.
+    /// </summary>
+    public string VervangAchter(string tekst)
+    {
+        foreach (var oud in Alle.Where(s => s.Prefix.Length > 0).OrderByDescending(s => s.Prefix.Length))
+        {
+            var plek = tekst.IndexOf(oud.Prefix, StringComparison.OrdinalIgnoreCase);
+            if (plek >= 0)
+            {
+                tekst = (tekst[..plek].TrimEnd().TrimEnd(',') + " " + tekst[(plek + oud.Prefix.Length)..].TrimStart(',', ' ')).Trim();
+            }
+        }
+
+        return AchterTekst(tekst);
+    }
+
     /// <summary>De beeldstijlen die getekend zijn: daar zijn de fotomodellen (RealVisXL, Juggernaut) zwak in.</summary>
     public bool Getekend => Tag is "anime" or "manga" or "tekenfilm";
 
