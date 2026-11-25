@@ -11,7 +11,7 @@ namespace Jabasoft.Brug.App.Modules.ImageFunn;
 /// ImageFunn &gt; Tekst naar beeld: een beeld maken uit een omschrijving, en het daarna bijsturen.
 ///
 /// Links de opdracht (omschrijving, stijl, beeldmodel, formaat, seed), rechts
-/// het gemaakte beeld met eronder het bijsturen (zie TekstNaarBeeld.Bijsturen.cs),
+/// het gemaakte beeld met rechts ernaast het bijsturen (zie TekstNaarBeeld.Bijsturen.cs),
 /// onderaan de galerij. Het beeld kan door naar Beeld naar video, Beeld naar
 /// tekst en Film maken. De beeldservice doet het werk (<see cref="Beeldservice"/>).
 ///
@@ -128,7 +128,7 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         beeldvlak.Children.Add(_geenBeeld);
         beeldvlak.Children.Add(_beeld);
         beeldvlak.Children.Add(_tekenlaag);
-        var beeld = new StackPanel
+        var beeldkolom = new StackPanel
         {
             Spacing = 12,
             Children =
@@ -136,9 +136,20 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
                 beeldvlak,
                 _beeldInfo,
                 Onderdelen.Knoppen(_naarVideo, _naarTekst, _naarFilm, _inMap, _verwijder),
-                MaakBijstuurpaneel(),
             },
         };
+
+        // Het bijsturen staat in een eigen kader rechts naast de foto; zonder beeld is het verborgen en krijgt de foto
+        // (of de melding "nog geen beeld") de hele breedte.
+        var bijsturen = MaakBijstuurpaneel();
+        bijsturen.Width = 440;
+        bijsturen.VerticalAlignment = VerticalAlignment.Top;
+        var beeld = new Grid { ColumnSpacing = 24 };
+        beeld.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        beeld.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(bijsturen, 1);
+        beeld.Children.Add(beeldkolom);
+        beeld.Children.Add(bijsturen);
 
         // ---- galerij
         var galerij = new StackPanel
