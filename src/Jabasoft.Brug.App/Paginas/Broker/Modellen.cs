@@ -17,18 +17,31 @@ namespace Jabasoft.Brug.App.Paginas.Broker;
 /// </summary>
 public sealed class Modellen : BrokerPagina
 {
-    /// <summary>De taakvelden in de broker-instellingen, met hoe ze op het scherm heten.</summary>
-    private static readonly (string Veld, string Taak)[] Taken =
+    /// <summary>
+    /// De plekken waar een model ingesteld kan staan: sleutel, kort label (pilletje
+    /// in de lijst) en naam (knop in het detail). De vijf taakvelden staan in de
+    /// broker-instellingen (in beide serversecties); "goose", "hermes" en
+    /// "hermesLokaal" gaan via /api/goose en /api/hermes, net als op Instellingen.
+    /// </summary>
+    private static readonly (string Plek, string Kort, string Naam)[] Plekken =
     [
-        ("chatModel", "Chat"),
-        ("codeModel", "Code"),
-        ("controleModel", "Ctrl"),
-        ("beeldModel", "Beeld"),
-        ("embedModel", "Zoek"),
-        ("gooseModel", "Goose"),
-        ("hermesModel", "Hermes"),
-        ("hermesLokaalModel", "Hermes lok."),
+        ("chatModel", "Chat", "Daily chat"),
+        ("codeModel", "Code", "Code (gesprek)"),
+        ("controleModel", "Ctrl", "Controle"),
+        ("beeldModel", "Beeld", "Beeld lezen"),
+        ("embedModel", "Zoek", "Zoeken"),
+        ("goose", "Goose", "Goose"),
+        ("hermes", "Hermes", "Hermes"),
+        ("hermesLokaal", "Hermes lok.", "Hermes bijtaken"),
     ];
+
+    private static readonly string[] TaakVelden = ["chatModel", "codeModel", "controleModel", "beeldModel", "embedModel"];
+
+    /// <summary>Welk model nu op elke plek staat, en wat er in het detail nieuw gekozen is maar nog niet bewaard.</summary>
+    private Dictionary<string, string> _houders = [];
+    private readonly Dictionary<string, string> _nieuw = [];
+    private string _plekMelding = "";
+    private bool _bezig;
 
     /// <summary>Vaste kolombreedtes, zodat taak, soort en tokens in elke regel en elke groep onder elkaar staan.</summary>
     private static readonly GridLength KolomTaken = new(230);
@@ -87,14 +100,31 @@ public sealed class Modellen : BrokerPagina
 
         async Task InstellingenAsync()
         {
-            var serverActief = Lees((await BrokerApi.InstellingenAsync()).Waarde);
+            var instellingenTaak = BrokerApi.InstellingenAsync();
+            var gooseTaak = BrokerApi.GooseAsync();
+            var hermesTaak = BrokerApi.HermesAsync();
+            var serverActief = Lees((await instellingenTaak).Waarde);
+            var goose = (await gooseTaak).Waarde;
+            var hermes = (await hermesTaak).Waarde;
             _verborgen = (serverActief?["verborgen"] as JsonArray)?.Select(n => n?.GetValue<string>() ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase) ?? [];
-            var taken = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (veld, taak) in Taken)
+
+            var houders = new Dictionary<string, string>();
+            foreach (var veld in TaakVelden)
             {
-                if (serverActief?[veld]?.GetValue<string>() is { Length: > 0 } model)
+                houders[veld] = Waarde(serverActief, veld);
+            }
+
+            houders["goose"] = Waarde(goose, "model");
+            houders["hermes"] = Waarde(hermes, "model");
+            houders["hermesLokaal"] = Waarde(hermes, "lokaalModel");
+            _houders = houders.Where(h => h.Value.Length > 0).ToDictionary();
+
+            var taken = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (plek, kort, _) in Plekken)
+            {
+                if (_houders.TryGetValue(plek, out var model))
                 {
-                    (taken.TryGetValue(model, out var lijst) ? lijst : taken[model] = []).Add(taak);
+                    (taken.TryGetValue(model, out var lijst) ? lijst : taken[model] = []).Add(kort);
                 }
             }
 
@@ -207,7 +237,7 @@ public sealed class Modellen : BrokerPagina
                 _verborgen.Contains(gekozen),
                 !_serverGelukt || _opServer.Contains(gekozen),
                 _tokens.GetValueOrDefault(gekozen),
-                SterrenBlok(gekozen))
+                new StackPanel { Spacing = 10, Children = { GebruiktBlok(gekozen), SterrenBlok(gekozen) } })
             {
                 VerticalAlignment = VerticalAlignment.Top,
             };
@@ -225,6 +255,236 @@ public sealed class Modellen : BrokerPagina
 
         Lijf.Children.Add(raster);
     }
+
+    /// <summary>
+    /// GEBRUIKT VOOR: een knop per plek waar dit model past. Donkergeel = staat
+    /// hier nu; lila = kan hier; oranje = nieuw gekozen; rose = wordt vervangen
+    /// door een ander gekozen model. Kiezen gebeurt eerst alleen op het scherm;
+    /// pas Opslaan schrijft het weg (zonder extra vraag). Een plek leeg maken
+    /// kan niet: wisselen doe je door bij een ander model die plek te kiezen.
+    /// </summary>
+    private StackPanel GebruiktBlok(string naam)
+    {
+        var blok = new StackPanel { Spacing = 6 };
+        blok.Children.Add(Bouw.Tekst("GEBRUIKT VOOR", "LabelStijl"));
+
+        if (!_takenBinnen)
+        {
+            blok.Children.Add(Bouw.Melding("Ophalen…"));
+            return blok;
+        }
+
+        var geschikt = Geschikt(naam);
+        if (geschikt.Count == 0)
+        {
+            blok.Children.Add(Bouw.Melding("Geen taakmodel: dit model wordt niet via een taak ingesteld."));
+        }
+        else
+        {
+            var knoppen = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            foreach (var (plek, _, plekNaam) in Plekken.Where(p => geschikt.Contains(p.Plek)))
+            {
+                var huidig = _houders.GetValueOrDefault(plek);
+                var nieuw = _nieuw.GetValueOrDefault(plek);
+                var ditModel = Gelijk(huidig, naam);
+                var gekozen = Gelijk(nieuw, naam);
+                var vervangen = ditModel && nieuw is not null && !gekozen;
+
+                var (kleur, tip) = (gekozen, ditModel, vervangen) switch
+                {
+                    (true, _, _) => ("AccentBrush", $"Nieuw gekozen voor {plekNaam}, nog niet bewaard (nu: {huidig ?? "niets"}). Klik om terug te draaien."),
+                    (_, _, true) => ("TextMutedBrush", $"Wordt bij Opslaan vervangen door {nieuw}. Klik om terug te draaien."),
+                    (_, true, _) => ("AccentBrushDark", $"Staat nu ingesteld voor {plekNaam}. Wisselen: kies deze plek bij een ander model."),
+                    _ => ("BorderBrush", $"Nu: {huidig ?? "niets"}. Klik om dit model voor {plekNaam} te kiezen."),
+                };
+
+                var knop = Bouw.Knop(plekNaam, (_, _) =>
+                {
+                    if (gekozen || vervangen)
+                    {
+                        _nieuw.Remove(plek);
+                    }
+                    else if (!ditModel)
+                    {
+                        _nieuw[plek] = naam;
+                    }
+                    else
+                    {
+                        return;
+                    }
+
+                    _plekMelding = "";
+                    Teken();
+                }, kleur);
+                ToolTipService.SetToolTip(knop, tip);
+                knoppen.Children.Add(knop);
+            }
+
+            blok.Children.Add(knoppen);
+        }
+
+        if (_nieuw.Count > 0 || _plekMelding.Length > 0)
+        {
+            var rij = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0) };
+            if (_nieuw.Count > 0)
+            {
+                rij.Children.Add(Bouw.Knop("Opslaan", async (_, _) => await BewaarPlekkenAsync()));
+                rij.Children.Add(Bouw.Knop("Annuleren", (_, _) =>
+                {
+                    _nieuw.Clear();
+                    Teken();
+                }, "TextMutedBrush"));
+            }
+
+            var tekst = _nieuw.Count > 0
+                ? "Nog niet bewaard: " + string.Join(" · ", Plekken.Where(p => _nieuw.ContainsKey(p.Plek)).Select(p => $"{p.Naam} → {_nieuw[p.Plek]}"))
+                : _plekMelding;
+            var melding = Bouw.Melding(_plekMelding.Length > 0 && _nieuw.Count > 0 ? $"{_plekMelding} {tekst}" : tekst);
+            melding.VerticalAlignment = VerticalAlignment.Center;
+            rij.Children.Add(melding);
+            blok.Children.Add(rij);
+        }
+
+        return blok;
+    }
+
+    /// <summary>
+    /// Waar een model past, op grond van de soort in de catalogus: een
+    /// embeddingmodel alleen voor Zoeken, een beeldmodel voor Beeld lezen en
+    /// Hermes bijtaken (die krijgt de plaatjes), een beeldmaker nergens, de
+    /// rest voor chat, code, controle, Goose en Hermes. Een plek waar het
+    /// model nu al staat, komt er altijd bij.
+    /// </summary>
+    private HashSet<string> Geschikt(string naam)
+    {
+        var soort = (_info.TryGetValue(naam, out var info) ? info.Soort : "").ToLowerInvariant();
+        var laag = naam.ToLowerInvariant();
+
+        HashSet<string> plekken = soort switch
+        {
+            _ when soort.Contains("afbeelding") => [],
+            _ when soort.Contains("embed") || laag.Contains("embed") => ["embedModel"],
+            _ when soort.Contains("beeld") || laag.Contains("-vl") => ["beeldModel", "hermesLokaal"],
+            _ => ["chatModel", "codeModel", "controleModel", "goose", "hermes", "hermesLokaal"],
+        };
+
+        foreach (var (plek, model) in _houders)
+        {
+            if (Gelijk(model, naam))
+            {
+                plekken.Add(plek);
+            }
+        }
+
+        return plekken;
+    }
+
+    /// <summary>
+    /// Schrijft de nieuw gekozen plekken weg, telkens op verse instellingen:
+    /// taakvelden in beide serversecties (het model hoort bij de taak, niet bij
+    /// de server), Goose en Hermes via hun eigen config. Wat lukt verdwijnt uit
+    /// de keuzes; wat niet lukt blijft staan met de reden.
+    /// </summary>
+    private async Task BewaarPlekkenAsync()
+    {
+        if (_bezig)
+        {
+            return;
+        }
+
+        _bezig = true;
+        var fouten = new List<string>();
+        try
+        {
+            var taken = _nieuw.Where(n => TaakVelden.Contains(n.Key)).ToList();
+            if (taken.Count > 0)
+            {
+                var fout = (await BrokerApi.InstellingenAsync()) is { Waarde: { } geheel }
+                    ? await BewaarTakenAsync(geheel, taken)
+                    : "instellingen niet op te halen";
+                Verwerk(taken.Select(t => t.Key), "Model per taak", fout);
+            }
+
+            if (_nieuw.TryGetValue("goose", out var gooseModel))
+            {
+                var fout = (await BrokerApi.GooseAsync()) is { Waarde: { } goose }
+                    ? await BrokerApi.BewaarGooseAsync(Met(goose, "model", gooseModel))
+                    : "Goose-instelling niet op te halen";
+                Verwerk(["goose"], "Goose-model", fout);
+            }
+
+            var hermesPlekken = _nieuw.Where(n => n.Key is "hermes" or "hermesLokaal").ToList();
+            if (hermesPlekken.Count > 0)
+            {
+                string? fout;
+                if ((await BrokerApi.HermesAsync()) is { Waarde: { } hermes })
+                {
+                    foreach (var (plek, model) in hermesPlekken)
+                    {
+                        hermes[plek == "hermes" ? "model" : "lokaalModel"] = model;
+                    }
+
+                    fout = await BrokerApi.BewaarHermesAsync(hermes);
+                }
+                else
+                {
+                    fout = "Hermes-instelling niet op te halen";
+                }
+
+                Verwerk(hermesPlekken.Select(h => h.Key), "Hermes-model", fout);
+            }
+        }
+        finally
+        {
+            _bezig = false;
+        }
+
+        _plekMelding = fouten.Count == 0 ? $"Bewaard om {DateTime.Now:HH:mm:ss}." : $"Niet alles bewaard: {string.Join("; ", fouten)}.";
+        await VerversAsync();
+
+        void Verwerk(IEnumerable<string> plekken, string wat, string? fout)
+        {
+            var lijst = plekken.ToList();
+            var beschrijving = string.Join(", ", lijst.Select(p => $"{Plekken.First(x => x.Plek == p).Naam} → {_nieuw[p]}"));
+            if (fout is null)
+            {
+                App.AppLog.Schrijf("brug", $"{wat} bewaard: {beschrijving}");
+                lijst.ForEach(p => _nieuw.Remove(p));
+            }
+            else
+            {
+                App.AppLog.Schrijf("brug", $"{wat} niet bewaard ({beschrijving}): {fout}");
+                fouten.Add($"{wat}: {fout}");
+            }
+        }
+    }
+
+    private static Task<string?> BewaarTakenAsync(JsonObject geheel, List<KeyValuePair<string, string>> taken)
+    {
+        foreach (var sectie in new[] { "lmStudio", "ollama" })
+        {
+            var waarden = geheel[sectie] as JsonObject ?? new JsonObject();
+            foreach (var (veld, model) in taken)
+            {
+                waarden[veld] = model;
+            }
+
+            geheel[sectie] = waarden;
+        }
+
+        return BrokerApi.BewaarInstellingenAsync(geheel);
+    }
+
+    private static JsonObject Met(JsonObject obj, string veld, string waarde)
+    {
+        obj[veld] = waarde;
+        return obj;
+    }
+
+    private static string Waarde(JsonObject? obj, string veld) =>
+        obj?[veld] is JsonValue v && v.TryGetValue<string>(out var s) ? s.Trim() : "";
+
+    private static bool Gelijk(string? a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Kwaliteit en sterren per onderdeel in het detail. Kwaliteit: klik op de
@@ -507,6 +767,12 @@ public sealed class Modellen : BrokerPagina
 
             if (_sterren is not null)
             {
+                // Na Bewerken > Annuleren hangt het blok nog in het vorige paneel: eerst losmaken.
+                if (_sterren is FrameworkElement { Parent: Panel vorige })
+                {
+                    vorige.Children.Remove(_sterren);
+                }
+
                 inhoud.Children.Add(_sterren);
             }
 
