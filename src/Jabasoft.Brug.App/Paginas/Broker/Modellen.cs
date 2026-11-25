@@ -245,13 +245,13 @@ public sealed class Modellen : BrokerPagina
                 _verborgen.Contains(gekozen),
                 !_serverGelukt || _opServer.Contains(gekozen),
                 _tokens.GetValueOrDefault(gekozen),
-                () => new StackPanel { Spacing = 10, Children = { GebruiktBlok(gekozen), SterrenBlok(gekozen) } })
-            {
-                VerticalAlignment = VerticalAlignment.Top,
-            };
+                () => SterrenBlok(gekozen));
             detail.Bewaard += async (_, _) => await VerversAsync();
-            Grid.SetColumn(detail, 1);
-            raster.Children.Add(detail);
+
+            // Rechts: de gele modelkaart, daaronder het overzicht van alle plekken.
+            var rechts = new StackPanel { Spacing = 16, VerticalAlignment = VerticalAlignment.Top, Children = { detail, PlekkenPaneel() } };
+            Grid.SetColumn(rechts, 1);
+            raster.Children.Add(rechts);
         }
         else
         {
@@ -265,105 +265,122 @@ public sealed class Modellen : BrokerPagina
     }
 
     /// <summary>
-    /// GEBRUIKT VOOR: een knop per plek waar dit model past. Donkergeel = staat
-    /// hier nu; lila = kan hier; oranje = nieuw gekozen; rose = wordt vervangen
-    /// door een ander gekozen model. Kiezen gebeurt eerst alleen op het scherm;
-    /// pas Opslaan schrijft het weg (zonder extra vraag). Een aangevinkte plek
-    /// uitvinken maakt hem leeg, behalve bij Goose en Hermes (zie MoetGevuld).
+    /// Het paneel PLEKKEN onder de modelkaart: alle plekken waar een model kan
+    /// staan, elk met een keuzelijst van de modellen die er passen. Zo is in
+    /// één oogopslag te zien welk model waar staat. Kiezen gebeurt eerst alleen
+    /// op het scherm; pas Opslaan schrijft het weg (zonder extra vraag). "Leeg"
+    /// kan overal behalve bij Goose en Hermes (zie MoetGevuld). Een plek waar
+    /// het gekozen model uit de lijst links staat, is oranje.
     /// </summary>
-    private StackPanel GebruiktBlok(string naam)
+    private FrameworkElement PlekkenPaneel()
     {
-        var blok = new StackPanel { Spacing = 6 };
-        blok.Children.Add(Bouw.Tekst("GEBRUIKT VOOR", "LabelStijl"));
-
+        var inhoud = new StackPanel { Spacing = 8 };
         if (!_takenBinnen)
         {
-            blok.Children.Add(Bouw.Melding("Ophalen…"));
-            return blok;
+            inhoud.Children.Add(Bouw.Melding("Ophalen…"));
+            return Bouw.Groep("Plekken", "", inhoud, "BorderBrush");
         }
 
-        var geschikt = Geschikt(naam);
-        if (geschikt.Count == 0)
+        var melding = Bouw.Melding("");
+        melding.VerticalAlignment = VerticalAlignment.Center;
+        var opslaan = Bouw.Knop("Opslaan", async (_, _) => await BewaarPlekkenAsync());
+        var annuleren = Bouw.Knop("Annuleren", (_, _) =>
         {
-            blok.Children.Add(Bouw.Melding("Geen taakmodel: dit model wordt niet via een taak ingesteld."));
-        }
-        else
+            _nieuw.Clear();
+            _plekMelding = "";
+            Teken();
+        }, "TextMutedBrush");
+
+        void WerkStandBij()
         {
-            var knoppen = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            foreach (var (plek, _, plekNaam) in Plekken.Where(p => geschikt.Contains(p.Plek)))
-            {
-                var huidig = _houders.GetValueOrDefault(plek);
-                var nieuw = _nieuw.GetValueOrDefault(plek);
-                var ditModel = Gelijk(huidig, naam);
-                var gekozen = Gelijk(nieuw, naam);
-                var vervangen = ditModel && nieuw is not null && !gekozen;
-                var leegbaar = !MoetGevuld.Contains(plek);
-
-                var (kleur, tip) = (gekozen, ditModel, vervangen) switch
-                {
-                    (true, _, _) => ("AccentBrush", $"Nieuw gekozen voor {plekNaam}, nog niet bewaard (nu: {huidig ?? "niets"}). Klik om terug te draaien."),
-                    (_, _, true) when nieuw == "" => ("TextMutedBrush", $"Wordt bij Opslaan leeggemaakt. Klik om terug te draaien."),
-                    (_, _, true) => ("TextMutedBrush", $"Wordt bij Opslaan vervangen door {nieuw}. Klik om terug te draaien."),
-                    (_, true, _) when leegbaar => ("AccentBrushDark", $"Staat nu ingesteld voor {plekNaam}. Klik om uit te vinken: bij Opslaan wordt de plek leeg."),
-                    (_, true, _) => ("AccentBrushDark", $"Staat nu ingesteld voor {plekNaam}. Deze plek kan niet leeg; wisselen: vink hem aan bij een ander model."),
-                    _ => ("BorderBrush", $"Nu: {huidig ?? "niets"}. Klik om dit model voor {plekNaam} te kiezen."),
-                };
-
-                // Vinkje: aan = staat hier (of wordt hier gezet), uit = kan hier.
-                var aan = gekozen || (ditModel && !vervangen);
-                var knop = Bouw.Knop($"{(aan ? "☑" : "☐")}  {plekNaam}", (_, _) =>
-                {
-                    if (gekozen || vervangen)
-                    {
-                        _nieuw.Remove(plek);
-                    }
-                    else if (!ditModel)
-                    {
-                        _nieuw[plek] = naam;
-                    }
-                    else if (leegbaar)
-                    {
-                        // Uitvinken: leeg bewaren ("" = leegmaken).
-                        _nieuw[plek] = "";
-                    }
-                    else
-                    {
-                        return;
-                    }
-
-                    _plekMelding = "";
-                    Teken();
-                }, kleur);
-                ToolTipService.SetToolTip(knop, tip);
-                knoppen.Children.Add(knop);
-            }
-
-            blok.Children.Add(knoppen);
-        }
-
-        if (_nieuw.Count > 0 || _plekMelding.Length > 0)
-        {
-            var rij = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0) };
-            if (_nieuw.Count > 0)
-            {
-                rij.Children.Add(Bouw.Knop("Opslaan", async (_, _) => await BewaarPlekkenAsync()));
-                rij.Children.Add(Bouw.Knop("Annuleren", (_, _) =>
-                {
-                    _nieuw.Clear();
-                    Teken();
-                }, "TextMutedBrush"));
-            }
-
-            var tekst = _nieuw.Count > 0
-                ? "Nog niet bewaard: " + string.Join(" · ", Plekken.Where(p => _nieuw.ContainsKey(p.Plek)).Select(p => $"{p.Naam} → {Toon(_nieuw[p.Plek])}"))
+            opslaan.IsEnabled = _nieuw.Count > 0 && !_bezig;
+            annuleren.Visibility = _nieuw.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            melding.Text = _nieuw.Count > 0
+                ? $"{_nieuw.Count} wijziging(en) nog niet bewaard: " + string.Join(" · ", Plekken.Where(p => _nieuw.ContainsKey(p.Plek)).Select(p => $"{p.Naam} → {Toon(_nieuw[p.Plek])}"))
                 : _plekMelding;
-            var melding = Bouw.Melding(_plekMelding.Length > 0 && _nieuw.Count > 0 ? $"{_plekMelding} {tekst}" : tekst);
-            melding.VerticalAlignment = VerticalAlignment.Center;
-            rij.Children.Add(melding);
-            blok.Children.Add(rij);
         }
 
-        return blok;
+        foreach (var (plek, _, plekNaam) in Plekken)
+        {
+            var huidig = _houders.GetValueOrDefault(plek) ?? "";
+            var waarde = _nieuw.GetValueOrDefault(plek) ?? huidig;
+
+            // De modellen die hier passen (niet verborgen, op de server), plus wat er nu staat.
+            var keuzes = _namen
+                .Where(n => Geschikt(n).Contains(plek) && !_verborgen.Contains(n) && (!_serverGelukt || _opServer.Contains(n)))
+                .Append(huidig)
+                .Append(waarde)
+                .Where(n => n.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+                .Select(n => (Tekst: n, Model: n))
+                .ToList();
+            if (!MoetGevuld.Contains(plek))
+            {
+                keuzes.Insert(0, ("— leeg —", ""));
+            }
+
+            var label = Bouw.Tekst(plekNaam);
+            label.VerticalAlignment = VerticalAlignment.Center;
+
+            var keuze = new ComboBox
+            {
+                ItemsSource = keuzes.Select(k => k.Tekst).ToList(),
+                SelectedIndex = keuzes.FindIndex(k => Gelijk(k.Model, waarde)),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                MinWidth = 280,
+            };
+
+            void Kleur()
+            {
+                var gekozen = _gekozen is { } g && Gelijk(_nieuw.GetValueOrDefault(plek) ?? huidig, g);
+                label.Foreground = Bouw.Kleur(_nieuw.ContainsKey(plek) ? "AccentBrush" : gekozen ? "AccentBrush" : "TextPrimaryBrush");
+                label.Text = _nieuw.ContainsKey(plek) ? $"{plekNaam}  •" : plekNaam;
+            }
+
+            keuze.SelectionChanged += (_, _) =>
+            {
+                if (keuze.SelectedIndex < 0)
+                {
+                    return;
+                }
+
+                var model = keuzes[keuze.SelectedIndex].Model;
+                if (Gelijk(model, huidig))
+                {
+                    _nieuw.Remove(plek);
+                }
+                else
+                {
+                    _nieuw[plek] = model;
+                }
+
+                _plekMelding = "";
+                Kleur();
+                WerkStandBij();
+            };
+            ToolTipService.SetToolTip(keuze, huidig.Length > 0 ? $"Nu ingesteld: {huidig}" : "Nu leeg");
+            Kleur();
+
+            var rij = new Grid { ColumnSpacing = 16 };
+            rij.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
+            rij.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            rij.Children.Add(label);
+            Grid.SetColumn(keuze, 1);
+            rij.Children.Add(keuze);
+            inhoud.Children.Add(rij);
+        }
+
+        inhoud.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 12,
+            Margin = new Thickness(0, 6, 0, 0),
+            Children = { opslaan, annuleren, melding },
+        });
+        WerkStandBij();
+
+        return Bouw.Groep("Plekken", "model per plek", inhoud, "BorderBrush");
     }
 
     /// <summary>
