@@ -37,6 +37,14 @@ public sealed class Modellen : BrokerPagina
 
     private static readonly string[] TaakVelden = ["chatModel", "codeModel", "controleModel", "beeldModel", "embedModel"];
 
+    /// <summary>
+    /// Plekken die niet leeg kunnen: de broker negeert een leeg Goose-model,
+    /// en Hermes werkt niet zonder hoofdmodel. Daar alleen wisselen.
+    /// </summary>
+    private static readonly string[] MoetGevuld = ["goose", "hermes"];
+
+    private static string Toon(string model) => model.Length == 0 ? "leeg" : model;
+
     /// <summary>Welk model nu op elke plek staat, en wat er in het detail nieuw gekozen is maar nog niet bewaard.</summary>
     private Dictionary<string, string> _houders = [];
     private readonly Dictionary<string, string> _nieuw = [];
@@ -260,8 +268,8 @@ public sealed class Modellen : BrokerPagina
     /// GEBRUIKT VOOR: een knop per plek waar dit model past. Donkergeel = staat
     /// hier nu; lila = kan hier; oranje = nieuw gekozen; rose = wordt vervangen
     /// door een ander gekozen model. Kiezen gebeurt eerst alleen op het scherm;
-    /// pas Opslaan schrijft het weg (zonder extra vraag). Een plek leeg maken
-    /// kan niet: wisselen doe je door bij een ander model die plek te kiezen.
+    /// pas Opslaan schrijft het weg (zonder extra vraag). Een aangevinkte plek
+    /// uitvinken maakt hem leeg, behalve bij Goose en Hermes (zie MoetGevuld).
     /// </summary>
     private StackPanel GebruiktBlok(string naam)
     {
@@ -289,12 +297,15 @@ public sealed class Modellen : BrokerPagina
                 var ditModel = Gelijk(huidig, naam);
                 var gekozen = Gelijk(nieuw, naam);
                 var vervangen = ditModel && nieuw is not null && !gekozen;
+                var leegbaar = !MoetGevuld.Contains(plek);
 
                 var (kleur, tip) = (gekozen, ditModel, vervangen) switch
                 {
                     (true, _, _) => ("AccentBrush", $"Nieuw gekozen voor {plekNaam}, nog niet bewaard (nu: {huidig ?? "niets"}). Klik om terug te draaien."),
+                    (_, _, true) when nieuw == "" => ("TextMutedBrush", $"Wordt bij Opslaan leeggemaakt. Klik om terug te draaien."),
                     (_, _, true) => ("TextMutedBrush", $"Wordt bij Opslaan vervangen door {nieuw}. Klik om terug te draaien."),
-                    (_, true, _) => ("AccentBrushDark", $"Staat nu ingesteld voor {plekNaam}. Wisselen: kies deze plek bij een ander model."),
+                    (_, true, _) when leegbaar => ("AccentBrushDark", $"Staat nu ingesteld voor {plekNaam}. Klik om uit te vinken: bij Opslaan wordt de plek leeg."),
+                    (_, true, _) => ("AccentBrushDark", $"Staat nu ingesteld voor {plekNaam}. Deze plek kan niet leeg; wisselen: vink hem aan bij een ander model."),
                     _ => ("BorderBrush", $"Nu: {huidig ?? "niets"}. Klik om dit model voor {plekNaam} te kiezen."),
                 };
 
@@ -309,6 +320,11 @@ public sealed class Modellen : BrokerPagina
                     else if (!ditModel)
                     {
                         _nieuw[plek] = naam;
+                    }
+                    else if (leegbaar)
+                    {
+                        // Uitvinken: leeg bewaren ("" = leegmaken).
+                        _nieuw[plek] = "";
                     }
                     else
                     {
@@ -339,7 +355,7 @@ public sealed class Modellen : BrokerPagina
             }
 
             var tekst = _nieuw.Count > 0
-                ? "Nog niet bewaard: " + string.Join(" · ", Plekken.Where(p => _nieuw.ContainsKey(p.Plek)).Select(p => $"{p.Naam} → {_nieuw[p.Plek]}"))
+                ? "Nog niet bewaard: " + string.Join(" · ", Plekken.Where(p => _nieuw.ContainsKey(p.Plek)).Select(p => $"{p.Naam} → {Toon(_nieuw[p.Plek])}"))
                 : _plekMelding;
             var melding = Bouw.Melding(_plekMelding.Length > 0 && _nieuw.Count > 0 ? $"{_plekMelding} {tekst}" : tekst);
             melding.VerticalAlignment = VerticalAlignment.Center;
@@ -447,7 +463,7 @@ public sealed class Modellen : BrokerPagina
         void Verwerk(IEnumerable<string> plekken, string wat, string? fout)
         {
             var lijst = plekken.ToList();
-            var beschrijving = string.Join(", ", lijst.Select(p => $"{Plekken.First(x => x.Plek == p).Naam} → {_nieuw[p]}"));
+            var beschrijving = string.Join(", ", lijst.Select(p => $"{Plekken.First(x => x.Plek == p).Naam} → {Toon(_nieuw[p])}"));
             if (fout is null)
             {
                 App.AppLog.Schrijf("brug", $"{wat} bewaard: {beschrijving}");
