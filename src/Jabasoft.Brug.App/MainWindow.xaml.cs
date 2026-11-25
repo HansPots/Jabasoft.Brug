@@ -85,6 +85,7 @@ public sealed partial class MainWindow : Window
         "imagefunn.beeldnaarvideo" => new Modules.ImageFunn.VideoScherm(vanBeeld: true),
         "imagefunn.tekstnaarvideo" => new Modules.ImageFunn.VideoScherm(vanBeeld: false),
         "imagefunn.beeldnaartekst" => new Modules.ImageFunn.BeeldNaarTekst(),
+        "imagefunn.film" => new Modules.ImageFunn.FilmScherm(),
         _ => new LegePagina(onderdeel),
     };
 

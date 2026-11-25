@@ -42,7 +42,7 @@ public static class Menukaart
             new("imagefunn.tekstnaarvideo", "Tekst naar video", "",
                 "Een video maken uit een omschrijving.", Fase: 4),
             new("imagefunn.film", "Film maken", "",
-                "Een verhaal in scènes, met cast, sleutelbeelden en de film.", Fase: 4, Beschikbaar: false),
+                "Een verhaal in scènes, met cast, sleutelbeelden en de film.", Fase: 4),
         ]),
         new("aistudio", "AI Studio", "", Fase: 6, Beschikbaar: false),
         new("tabstudio", "TabStudio", "", Fase: 6, Beschikbaar: false),
