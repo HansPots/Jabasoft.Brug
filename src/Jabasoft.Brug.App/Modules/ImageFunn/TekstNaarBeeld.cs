@@ -27,6 +27,8 @@ public sealed partial class TekstNaarBeeld : UserControl, IVerversbaar, IOntvang
         ("realvis", "RealVisXL - fotorealistisch"),
         ("juggernaut", "Juggernaut XL - fotorealistisch"),
         ("flux", "FLUX.1-schnell - snel, 4 stappen"),
+        ("zimage", "Z-Image Turbo - fotografisch, 8 stappen, tekst in beeld"),
+        ("fluxdev", "FLUX.1-dev - hoogste kwaliteit, trager"),
     ];
 
     private static readonly (string Tag, string Naam)[] Formaten =

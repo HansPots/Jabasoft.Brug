@@ -213,7 +213,7 @@ public static class Beeldservice
         var wilVideo = opdracht.Soort is "video" or "film";
         var beeldmodel = string.IsNullOrEmpty(opdracht.Beeldmodel) ? gezond.Model : opdracht.Beeldmodel;
 
-        // Bijsturen kan niet met FLUX: de service gebruikt dan RealVisXL.
+        // Bijsturen kan niet met FLUX.1-schnell: de service gebruikt dan RealVisXL.
         if (opdracht.Soort == "beeld" && opdracht.BronBeeld is not null && beeldmodel == "flux")
         {
             beeldmodel = "realvis";
@@ -315,10 +315,10 @@ public static class Beeldservice
     private static bool ZelfdeMap(string? a, string b) =>
         a is not null && string.Equals(Path.GetFullPath(a).TrimEnd('\\'), Path.GetFullPath(b).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>De versie van de code op schijf: de laatste wijziging van service.py of videomodellen.py (zoals service.py hem meldt).</summary>
+    /// <summary>De versie van de code op schijf: de laatste wijziging van service.py, videomodellen.py of service_modellen.py (zoals service.py hem meldt).</summary>
     private static long CodeVersie()
     {
-        var bestanden = new[] { "service.py", "videomodellen.py" }.Select(n => Path.Combine(ServiceMap, n)).Where(File.Exists).ToList();
+        var bestanden = new[] { "service.py", "videomodellen.py", "service_modellen.py" }.Select(n => Path.Combine(ServiceMap, n)).Where(File.Exists).ToList();
         return bestanden.Count == 0 ? -1 : new DateTimeOffset(bestanden.Max(File.GetLastWriteTimeUtc)).ToUnixTimeSeconds();
     }
 

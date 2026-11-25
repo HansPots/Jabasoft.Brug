@@ -44,7 +44,7 @@ public sealed class BeeldOpdracht
     [JsonPropertyName("videomodel")]
     public string Videomodel { get; set; } = "wan";
 
-    /// <summary>"juggernaut", "realvis" of "flux"; leeg = de standaard van de service. Geldt voor beelden, sleutelbeelden, cast en bijsturen (bijsturen kan niet met FLUX en gaat dan met RealVisXL).</summary>
+    /// <summary>"juggernaut", "realvis", "flux", "zimage" of "fluxdev"; leeg = de standaard van de service. Geldt voor beelden, sleutelbeelden, cast en bijsturen (bijsturen kan niet met FLUX.1-schnell en gaat dan met RealVisXL).</summary>
     [JsonPropertyName("beeldmodel")]
     public string Beeldmodel { get; set; } = string.Empty;
 

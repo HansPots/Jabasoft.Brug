@@ -111,6 +111,8 @@ public sealed class Instellingen : BrokerPagina
             ("realvis", "RealVisXL - fotorealistisch (standaard)"),
             ("juggernaut", "Juggernaut XL - fotorealistisch"),
             ("flux", "FLUX.1-schnell - snel, zonder bijsturen of cast"),
+            ("zimage", "Z-Image Turbo - fotografisch, zonder cast"),
+            ("fluxdev", "FLUX.1-dev - hoogste kwaliteit, trager, zonder cast"),
         ];
         (int Seconden, string Naam)[] ontladen =
         [

@@ -61,10 +61,10 @@ public static class Promptschrijver
     /// <summary>
     /// Hoeveel woorden een beeldprompt mag zijn voor dit beeldmodel. RealVisXL en Juggernaut (SDXL) lezen maar 77
     /// woorddelen en kappen de rest af; met de stijltekst erachter blijft er voor de omschrijving zo'n 40 woorden over.
-    /// FLUX leest er 256, daar mag het ruimer.
+    /// FLUX en Z-Image lezen er 256 of meer, daar mag het ruimer.
     /// </summary>
     public static int MaxWoorden(string beeldmodel, Promptsoort soort) =>
-        beeldmodel == "flux" ? (soort == Promptsoort.Bewerk ? 90 : 70) : (soort == Promptsoort.Bewerk ? 45 : 40);
+        beeldmodel is "flux" or "fluxdev" or "zimage" ? (soort == Promptsoort.Bewerk ? 90 : 70) : (soort == Promptsoort.Bewerk ? 45 : 40);
 
     /// <summary>
     /// De verbeterde prompt, of null met een fout: dan valt de aanroeper terug op de eigen tekst.
