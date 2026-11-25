@@ -63,11 +63,12 @@ public sealed partial class Navigatiemenu : UserControl
     private void VoegToe(MenuOnderdeel onderdeel, Panel doel, string? ouder)
     {
         var stijl = ouder is null ? "MenuKnopStijl" : "SubmenuKnopStijl";
+        // Elke knop ziet er hetzelfde uit en is aan te klikken, ook als het scherm er nog niet is: dat opent
+        // de lege pagina met "volgt in fase …" (gebruiker: alle knoppen zelfde kleur en breedte).
         var knop = new Button
         {
             Style = (Style)Application.Current.Resources[stijl],
             Content = MaakInhoud(onderdeel),
-            IsEnabled = onderdeel.Beschikbaar,
         };
 
         if (!onderdeel.Beschikbaar && onderdeel.Fase > 0)
@@ -148,8 +149,17 @@ public sealed partial class Navigatiemenu : UserControl
         return inhoud;
     }
 
+    /// <summary>Klapt een submenu open of dicht. Er is er altijd maar één open: openen klapt de andere dicht.</summary>
     private void KlapUit(string sleutel, bool open)
     {
+        if (open)
+        {
+            foreach (var ander in _submenus.Keys.Where(k => k != sleutel).ToList())
+            {
+                KlapUit(ander, open: false);
+            }
+        }
+
         if (_submenus.TryGetValue(sleutel, out var submenu))
         {
             submenu.Visibility = open ? Visibility.Visible : Visibility.Collapsed;

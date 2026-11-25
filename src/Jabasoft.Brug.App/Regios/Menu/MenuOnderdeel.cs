@@ -9,7 +9,7 @@ namespace Jabasoft.Brug.App.Regios.Menu;
 /// <param name="Icoon">Teken uit Segoe Fluent Icons, bijvoorbeeld "".</param>
 /// <param name="Omschrijving">Wat er op dit scherm komt; getoond zolang het nog leeg is.</param>
 /// <param name="Fase">De fase waarin het scherm gevuld wordt.</param>
-/// <param name="Beschikbaar">False = grijs en niet aan te klikken (bijvoorbeeld een module die er nog niet is).</param>
+/// <param name="Beschikbaar">False = het scherm is er nog niet: de knop ziet er gewoon uit, met een tooltip "komt in fase …", en opent de lege pagina.</param>
 public sealed record MenuOnderdeel(
     string Sleutel,
     string Titel,
