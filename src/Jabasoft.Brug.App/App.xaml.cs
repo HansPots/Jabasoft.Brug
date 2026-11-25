@@ -33,6 +33,22 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+
+        // Een fout die niemand afvangt: vastleggen in fouten.log (en in het
+        // activiteitenblok) en doorgaan, in plaats van stil te verdwijnen.
+        UnhandledException += (_, e) =>
+        {
+            Foutenlog.Schrijf("Onafgevangen fout", e.Exception);
+            AppLog.Schrijf("brug", $"Fout: {e.Exception.GetType().Name}: {e.Exception.Message} (zie fouten.log)");
+            e.Handled = true;
+        };
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Foutenlog.Schrijf("Onafgevangen fout in een taak", e.Exception);
+            e.SetObserved();
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            Foutenlog.Schrijf("Fatale fout", e.ExceptionObject as Exception);
     }
 
     /// <summary>De versie van de Brug, zoals in het projectbestand (Version).</summary>
